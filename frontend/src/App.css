@@ -2,30 +2,36 @@
    SABOR LATINO — Theme + Layout (FULL)
 ========================= */
 :root{
-  /* Base dark (sin blancos “puros”) */
-  --bg: #060606;
-  --panel: rgba(15,15,15,.78);
-  --panel2: rgba(25,25,25,.70);
-  --border: rgba(255,255,255,.10);
-  --text: rgba(255,245,225,.92);    /* crema (del borde del logo) */
-  --muted: rgba(255,245,225,.62);
-  --shadow: 0 18px 60px rgba(0,0,0,.55);
+  /* Base claro */
+  --bg: #F5F5F5;
+  --panel: rgba(255,255,255,.92);
+  --panel2: rgba(255,251,245,.90);
+  --border: rgba(0,0,0,.12);
+  --text: #1a0800;
+  --muted: rgba(26,8,0,.55);
+  --shadow: 0 6px 28px rgba(0,0,0,.10);
   --radius: 18px;
   --gap: 16px;
 
-  /* Paleta del logo */
-  --red: #f21410;
-  --red2: rgba(242,20,16,.22);
+  /* Nueva paleta */
+  --red: #CD0508;
+  --red2: rgba(205,5,8,.22);
 
-  --green: #19942b;
-  --green2: rgba(25,148,43,.20);
+  --brown: #B05328;
+  --brown2: rgba(176,83,40,.22);
 
-  --yellow: #f9cc12;
-  --yellow2: rgba(249,204,18,.20);
+  --amber: #FEAE0D;
+  --amber2: rgba(254,174,13,.22);
+
+  /* Backward-compat aliases */
+  --yellow: #FEAE0D;
+  --yellow2: rgba(254,174,13,.22);
+  --green: #B05328;
+  --green2: rgba(176,83,40,.22);
 
   /* Acento principal */
-  --accent: var(--yellow);
-  --accent2: var(--yellow2);
+  --accent: var(--amber);
+  --accent2: var(--amber2);
 }
 
 *{ box-sizing: border-box; }
@@ -36,9 +42,9 @@ body{
   color: var(--text);
   font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
   background:
-    radial-gradient(900px 520px at 18% 10%, rgba(249,204,18,.16), transparent 58%),
-    radial-gradient(900px 520px at 72% 55%, rgba(25,148,43,.16), transparent 58%),
-    radial-gradient(900px 520px at 85% 12%, rgba(242,20,16,.14), transparent 58%),
+    radial-gradient(900px 520px at 18% 10%, rgba(254,174,13,.16), transparent 58%),
+    radial-gradient(900px 520px at 72% 55%, rgba(176,83,40,.12), transparent 58%),
+    radial-gradient(900px 520px at 85% 12%, rgba(205,5,8,.10), transparent 58%),
     var(--bg);
 
   /* ✅ CLAVE: la página no scrollea */
@@ -97,6 +103,13 @@ body{
   align-items:center;
 }
 
+.topbarLogo{
+  height: 100px;
+  width: auto;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
 .topbar h1{
   margin: 0;
   font-size: clamp(24px, 2.2vw, 38px);
@@ -117,7 +130,7 @@ body{
 ========================= */
 .btn, .btnPrimary, .btnDanger, .btnDangerGhost{
   border: 1px solid var(--border);
-  background: rgba(255,255,255,.05);
+  background: rgba(0,0,0,.06);
   color: var(--text);
   border-radius: 14px;
   padding: 10px 14px;
@@ -127,14 +140,14 @@ body{
 }
 
 .btn:hover{
-  background: rgba(255,255,255,.09);
+  background: rgba(0,0,0,.11);
   transform: translateY(-1px);
 }
 
 .btnPrimary{
   background: var(--accent2);
-  border-color: rgba(249,204,18,.45);
-  color: rgba(10,10,10,.92); /* texto oscuro para que el amarillo “reviente” */
+  border-color: rgba(254,174,13,.50);
+  color: rgba(10,5,0,.92); /* texto oscuro sobre ámbar */
 }
 .btnPrimary:hover{
   filter: brightness(1.05);
@@ -142,11 +155,11 @@ body{
 }
 
 .btnDanger{
-  background: rgba(242,20,16,.14);
-  border-color: rgba(242,20,16,.35);
+  background: rgba(205,5,8,.16);
+  border-color: rgba(205,5,8,.40);
 }
 .btnDanger:hover{
-  background: rgba(242,20,16,.22);
+  background: rgba(205,5,8,.26);
   transform: translateY(-1px);
 }
 
@@ -156,8 +169,8 @@ body{
   white-space: nowrap;
 }
 .btnDangerGhost:hover{
-  border-color: rgba(242,20,16,.40);
-  background: rgba(242,20,16,.10);
+  border-color: rgba(205,5,8,.45);
+  background: rgba(205,5,8,.12);
 }
 
 .btn:disabled, .btnPrimary:disabled, .btnDanger:disabled{
@@ -189,15 +202,15 @@ body{
   width: 100%;
   border-radius: 14px;
   padding: 11px 12px;
-  border: 1px solid var(--border);
-  background: rgba(0,0,0,.35);
+  border: 1px solid rgba(0,0,0,.18);
+  background: rgba(255,255,255,.85);
   color: var(--text);
   outline: none;
 }
 
 .input:focus{
-  border-color: rgba(249,204,18,.55);
-  box-shadow: 0 0 0 4px rgba(249,204,18,.18);
+  border-color: rgba(254,174,13,.60);
+  box-shadow: 0 0 0 4px rgba(254,174,13,.20);
 }
 
 /* =========================
@@ -210,38 +223,50 @@ body{
 }
 
 .tableCard{
-  text-align:left;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
   border-radius: 16px;
   padding: 14px;
   border: 1px solid var(--border);
-  background: rgba(255,255,255,.05);
+  background: rgba(255,255,255,.75);
   cursor:pointer;
   transition: transform .08s ease, background .18s ease, border-color .18s ease;
-  min-height: 96px;
+  min-height: 120px;
+  gap: 6px;
+}
+
+.tableIcon{
+  width: 90px;
+  height: 90px;
+  object-fit: contain;
+  flex-shrink: 0;
 }
 
 .tableCard:hover{
   transform: translateY(-2px);
-  background: rgba(255,255,255,.09);
+  background: rgba(255,255,255,.95);
 }
 
 .tableCard.free{
-  background: linear-gradient(180deg, rgba(25,148,43,.18), rgba(255,255,255,.04));
-  border-color: rgba(25,148,43,.35);
+  background: linear-gradient(180deg, rgba(176,83,40,.18), rgba(255,255,255,.75));
+  border-color: rgba(176,83,40,.45);
 }
 .tableCard.busy{
-  background: linear-gradient(180deg, rgba(242,20,16,.16), rgba(255,255,255,.04));
-  border-color: rgba(242,20,16,.35);
+  background: linear-gradient(180deg, rgba(205,5,8,.16), rgba(255,255,255,.75));
+  border-color: rgba(205,5,8,.45);
 }
 
 .tableName{
   font-size: 16px;
   font-weight: 900;
+  color: #1a0800;
 }
 .tableStatus{
-  margin-top: 6px;
   font-size: 13px;
-  color: var(--muted);
+  color: rgba(26,8,0,.65);
 }
 
 /* =========================
@@ -260,7 +285,7 @@ body{
   gap: 14px;
   padding: 12px 12px;
   border-radius: 14px;
-  background: rgba(255,255,255,.05);
+  background: rgba(255,255,255,.80);
   border: 1px solid var(--border);
 }
 
@@ -322,15 +347,15 @@ body{
   padding: 10px 12px;
   border-radius: 14px;
   border: 1px solid var(--border);
-  background: rgba(255,255,255,.05);
+  background: rgba(255,255,255,.75);
   color: var(--text);
   cursor: pointer;
   font-weight: 800;
 }
 .catBtn.active{
   background: var(--accent2);
-  border-color: rgba(249,204,18,.45);
-  color: rgba(10,10,10,.92);
+  border-color: rgba(254,174,13,.50);
+  color: rgba(10,5,0,.92);
 }
 
 .orderLines{
@@ -346,7 +371,7 @@ body{
   gap: 12px;
   padding: 12px;
   border-radius: 14px;
-  background: rgba(255,255,255,.05);
+  background: rgba(255,255,255,.80);
   border: 1px solid var(--border);
 }
 
@@ -424,12 +449,12 @@ body{
   padding: 10px;
   border-radius: 14px;
   border: 1px solid var(--border);
-  background: rgba(255,255,255,.04);
+  background: rgba(255,255,255,.75);
 }
 
 .catCard.active{
-  border-color: rgba(249,204,18,.45);
-  background: rgba(249,204,18,.10);
+  border-color: rgba(254,174,13,.50);
+  background: rgba(254,174,13,.12);
 }
 
 .catPick{
@@ -447,7 +472,7 @@ body{
   text-overflow: ellipsis;
 }
 .catPick:hover{
-  background: rgba(255,255,255,.06);
+  background: rgba(0,0,0,.07);
 }
 
 /* Productos admin */
@@ -472,10 +497,10 @@ body{
 
 .emptyState{
   padding: 12px;
-  border: 1px dashed rgba(255,255,255,.18);
+  border: 1px dashed rgba(0,0,0,.20);
   border-radius: 14px;
   color: var(--muted);
-  background: rgba(0,0,0,.22);
+  background: rgba(0,0,0,.04);
 }
 
 /* =========================
@@ -502,10 +527,10 @@ body{
 
 .modalCard{
   width: min(680px, 100%);
-  background: rgba(10,10,10,.92);
-  border: 1px solid rgba(255,255,255,.12);
+  background: rgba(255,252,248,.97);
+  border: 1px solid rgba(0,0,0,.12);
   border-radius: 22px;
-  box-shadow: 0 25px 80px rgba(0,0,0,.65);
+  box-shadow: 0 20px 60px rgba(0,0,0,.20);
   padding: 18px;
   backdrop-filter: blur(10px);
 }
@@ -519,8 +544,8 @@ body{
   margin-top: 12px;
   padding: 12px;
   border-radius: 16px;
-  background: rgba(255,255,255,.05);
-  border: 1px solid rgba(255,255,255,.10);
+  background: rgba(0,0,0,.04);
+  border: 1px solid rgba(0,0,0,.10);
 }
 
 .payMethods{
@@ -560,7 +585,7 @@ body{
 
 .chip{
   border: 1px solid var(--border);
-  background: rgba(255,255,255,.05);
+  background: rgba(0,0,0,.07);
   color: var(--text);
   border-radius: 999px;
   padding: 8px 12px;
@@ -570,8 +595,8 @@ body{
 
 .chip.active{
   background: var(--accent2);
-  border-color: rgba(249,204,18,.45);
-  color: rgba(10,10,10,.92);
+  border-color: rgba(254,174,13,.50);
+  color: rgba(10,5,0,.92);
 }
 
 /* =========================

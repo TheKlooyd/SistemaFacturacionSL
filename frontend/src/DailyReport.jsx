@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import {
   loadPayments,
   loadDailyClose,
-  saveDailyClose,
   deleteDailyClose,
   clearPayments,
 } from "./paymentsStore";
@@ -109,23 +108,6 @@ export default function DailyReport({ onBack }) {
   const closeForSelectedDate =
     close && (close.dateISO === date) ? close : null;
 
-  function handleGenerateClose() {
-    // snapshot SOLO del día seleccionado
-    const snapshot = {
-      id: crypto.randomUUID(),
-      dateISO: date,
-      createdAt: new Date().toISOString(),
-      payments: dayPayments,
-      summary: liveSummary,
-      breakdown,
-      topProducts,
-    };
-
-    saveDailyClose(snapshot);
-    setClose(snapshot);
-    alert("Cierre diario generado ✅");
-  }
-
   function handlePrintClose() {
     // imprime el cierre de la fecha seleccionada:
     // si hay snapshot generado lo usa, sino imprime “live”
@@ -149,14 +131,6 @@ export default function DailyReport({ onBack }) {
       }),
       "cierre"
     );
-  }
-
-  function handleDeleteClose() {
-    const ok = confirm("¿Eliminar el cierre diario generado (snapshot)?");
-    if (!ok) return;
-    deleteDailyClose();
-    setClose(null);
-    alert("Cierre diario eliminado ✅");
   }
 
   function handleClearPayments() {

@@ -76,7 +76,7 @@ export default function App() {
   return (
     <div className="page">
       <header className="topbar">
-        <h1>Mini POS — Mesas</h1>
+        <img src="/saborlatinologo.png" className="topbarLogo" alt="Sabor Latino" />
 
         <div style={{ display: "flex", gap: 10 }}>
           <button className="btn" onClick={() => setView("products")}>
@@ -110,6 +110,7 @@ export default function App() {
                 }}
                 title="Click para abrir cuenta"
               >
+                <img src="/MesaIcono.png" className="tableIcon" alt="mesa" />
                 <div className="tableName">{t.name}</div>
                 <div className="tableStatus">{busy ? "Ocupada" : "Libre"}</div>
               </button>

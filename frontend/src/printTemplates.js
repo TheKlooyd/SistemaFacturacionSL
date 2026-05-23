@@ -113,7 +113,7 @@ export function ticketFactura({
   </body></html>`;
 }
 
-export function ticketCierre({ dateISO, summary, breakdown, topProducts, ticketsCount }) {
+export function ticketCierre({ dateISO, summary, breakdown, topProducts }) {
   const dt = new Date().toLocaleString("es-CO");
 
   const byMethod = (breakdown || [])
@@ -131,7 +131,7 @@ export function ticketCierre({ dateISO, summary, breakdown, topProducts, tickets
     <div class="sub">${esc(dateISO)} — Impreso: ${esc(dt)}</div>
     <div class="hr"></div>
 
-    ${line("Tickets", String(ticketsCount || 0))}
+    ${line("Tickets", String(summary?.tickets || 0))}
     ${line("Subtotal", `$${formatCOP(summary?.subtotal || 0)}`)}
     ${line("Propinas", `$${formatCOP(summary?.tip || 0)}`)}
     ${line("TOTAL", `<span class="bold">$${formatCOP(summary?.total || 0)}</span>`)}

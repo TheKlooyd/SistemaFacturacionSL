@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import "./App.css";
 
 function formatCOP(value) {
   return new Intl.NumberFormat("es-CO").format(value || 0);
