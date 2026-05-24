@@ -273,7 +273,7 @@ export default function TableOrder({ table, onBack, onPaid }) {
 
     openPrintWindow(
       ticketFactura({
-        businessName: "MI RESTAURANTE",
+        businessName: "SABOR LATINO",
         tableName: isDelivery ? "DELIVERY" : table.name,
         createdAt: new Date().toISOString(),
         isDelivery,

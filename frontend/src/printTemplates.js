@@ -20,7 +20,7 @@ function baseStyles() {
   return `
   <style>
     @page { size: 80mm auto; margin: 4mm 3mm; }
-    body { margin:0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color:#000; font-size:14px; }
+    body { margin:0; font-family: Arial, Helvetica, sans-serif; color:#000; font-size:14px; }
     .title { text-align:center; font-weight:800; font-size:20px; margin-bottom:6px; letter-spacing:0.5px; }
     .sub { text-align:center; font-size:13px; opacity:.85; margin-bottom:6px; }
     .hr { border-top:1px dashed #555; margin:8px 0; }
@@ -106,6 +106,7 @@ export function ticketFactura({
     ${nit ? `<div class="sub">NIT: ${esc(nit)}</div>` : ""}
     ${address ? `<div class="sub">${esc(address)}</div>` : ""}
     ${phone ? `<div class="sub">${esc(phone)}</div>` : ""}
+    <div class="sub">Nequi: 317 231 6964</div>
 
     <div class="hr"></div>
     ${line(`${isDelivery ? "🛵 DELIVERY" : tableName} — ${dt}`, "")}
