@@ -8,6 +8,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/products-data': 'http://localhost:3001',
+      '/clients-data': 'http://localhost:3001',
     },
   },
 })

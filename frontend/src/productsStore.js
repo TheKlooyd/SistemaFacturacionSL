@@ -57,27 +57,49 @@ export function saveProducts(products) {
   syncToServer(); // fire-and-forget: actualiza el JSON del servidor
 }
 
+const STATIC_PRODUCTS_URL = `${import.meta.env.BASE_URL}sabor_latino_jy_productos.json`;
+
 /**
- * Siempre carga productos y categorías desde el JSON del servidor al arrancar.
- * El servidor es la fuente de verdad; localStorage actúa solo como caché.
- * Si el servidor falla, se usa lo que haya en localStorage como fallback.
+ * Carga productos y categorías al arrancar.
+ * Prioridad: 1) API del backend  2) JSON estático en public/  3) localStorage
  */
 export async function loadFromServerIfEmpty() {
+  // 1) Intentar API del backend
   try {
     const res = await fetch(`${API_BASE}/products-data`);
-    if (!res.ok) return loadProductsRaw();
-    const data = await res.json();
-    if (
-      Array.isArray(data.products) && data.products.length > 0 &&
-      Array.isArray(data.categories) && data.categories.length > 0
-    ) {
-      // Guardar en localStorage directamente (sin re-triggering syncToServer)
-      localStorage.setItem(LS_PRODUCTS, JSON.stringify(data.products));
-      localStorage.setItem(LS_CATEGORIES, JSON.stringify(data.categories));
-      return data.products;
+    if (res.ok) {
+      const data = await res.json();
+      if (
+        Array.isArray(data.products) && data.products.length > 0 &&
+        Array.isArray(data.categories) && data.categories.length > 0
+      ) {
+        localStorage.setItem(LS_PRODUCTS, JSON.stringify(data.products));
+        localStorage.setItem(LS_CATEGORIES, JSON.stringify(data.categories));
+        return data.products;
+      }
     }
   } catch {
     // fail silently
   }
-  return current;
+
+  // 2) Fallback: JSON estático (funciona en GitHub Pages / hosting estático)
+  try {
+    const res = await fetch(STATIC_PRODUCTS_URL);
+    if (res.ok) {
+      const data = await res.json();
+      if (
+        Array.isArray(data.products) && data.products.length > 0 &&
+        Array.isArray(data.categories) && data.categories.length > 0
+      ) {
+        localStorage.setItem(LS_PRODUCTS, JSON.stringify(data.products));
+        localStorage.setItem(LS_CATEGORIES, JSON.stringify(data.categories));
+        return data.products;
+      }
+    }
+  } catch {
+    // fail silently
+  }
+
+  // 3) Último recurso: localStorage
+  return loadProductsRaw();
 }

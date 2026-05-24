@@ -35,22 +35,42 @@ export async function syncClientsToServer() {
   }
 }
 
+const STATIC_CLIENTS_URL = `${import.meta.env.BASE_URL}sabor_latino_jy_clientes.json`;
+
 /**
- * Al arrancar, carga clientes desde el servidor (fuente de verdad).
- * Si el servidor falla, usa el localStorage como fallback.
+ * Al arrancar, carga clientes al servidor.
+ * Prioridad: 1) API del backend  2) JSON estático en public/  3) localStorage
  */
 export async function loadClientsFromServer() {
+  // 1) Intentar API del backend
   try {
     const res = await fetch(`${API_BASE}/clients-data`);
-    if (!res.ok) return loadClients();
-    const data = await res.json();
-    if (Array.isArray(data.clients)) {
-      localStorage.setItem(LS_CLIENTS, JSON.stringify(data.clients));
-      return data.clients;
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data.clients)) {
+        localStorage.setItem(LS_CLIENTS, JSON.stringify(data.clients));
+        return data.clients;
+      }
     }
   } catch {
     // fail silently
   }
+
+  // 2) Fallback: JSON estático (funciona en GitHub Pages / hosting estático)
+  try {
+    const res = await fetch(STATIC_CLIENTS_URL);
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data.clients)) {
+        localStorage.setItem(LS_CLIENTS, JSON.stringify(data.clients));
+        return data.clients;
+      }
+    }
+  } catch {
+    // fail silently
+  }
+
+  // 3) Último recurso: localStorage
   return loadClients();
 }
 
