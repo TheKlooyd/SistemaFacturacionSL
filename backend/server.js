@@ -181,7 +181,8 @@ app.get("/reports/daily", (req, res) => {
 
 /** ========== JSON de clientes ========== */
 
-const CLIENTS_JSON_PATH = path.join(__dirname, "..", "sabor_latino_jy_clientes.json");
+// Escribe en frontend/public/ para que `npm run build` siempre empaquete los datos más recientes.
+const CLIENTS_JSON_PATH = path.join(__dirname, "..", "frontend", "public", "sabor_latino_jy_clientes.json");
 
 function readClientsJson() {
   try {
@@ -224,7 +225,8 @@ app.post("/clients-data", (req, res) => {
 
 /** ========== JSON de productos ========== */
 
-const PRODUCTS_JSON_PATH = path.join(__dirname, "..", "sabor_latino_jy_productos.json");
+// Escribe en frontend/public/ para que `npm run build` siempre empaquete los datos más recientes.
+const PRODUCTS_JSON_PATH = path.join(__dirname, "..", "frontend", "public", "sabor_latino_jy_productos.json");
 
 function readProductsJson() {
   try {
