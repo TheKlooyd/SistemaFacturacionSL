@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import "./App.css";
 
 import ProductAdmin from "./ProductAdmin";
+import ClientAdmin from "./ClientAdmin";
 import TableOrder from "./TableOrder";
 import DailyReport from "./DailyReport";
 
@@ -12,7 +13,7 @@ const BASE = import.meta.env.BASE_URL;
 
 export default function App() {
   // Hooks arriba siempre
-  const [view, setView] = useState("tables"); // "tables" | "products" | "order" | "report"
+  const [view, setView] = useState("tables"); // "tables" | "products" | "clients" | "order" | "report"
   const [tables, setTables] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedTable, setSelectedTable] = useState(null);
@@ -37,6 +38,14 @@ export default function App() {
     return (
       <div className="page">
         <ProductAdmin onBack={() => setView("tables")} />
+      </div>
+    );
+  }
+
+  if (view === "clients") {
+    return (
+      <div className="page">
+        <ClientAdmin onBack={() => setView("tables")} />
       </div>
     );
   }
@@ -73,6 +82,10 @@ export default function App() {
         <div style={{ display: "flex", gap: 10 }}>
           <button className="btn" onClick={() => setView("products")}>
             Admin productos
+          </button>
+
+          <button className="btn" onClick={() => setView("clients")}>
+            Admin clientes
           </button>
 
           <button className="btn" onClick={loadTables}>

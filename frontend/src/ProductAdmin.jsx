@@ -8,6 +8,7 @@ import {
 import {
   loadProducts,
   saveProducts,
+  loadFromServerIfEmpty,
 } from "./productsStore";
 
 function formatCOP(value) {
@@ -42,11 +43,14 @@ export default function ProductAdmin({ onBack }) {
   const isEditing = useMemo(() => Boolean(editingId), [editingId]);
 
   useEffect(() => {
-    const cats = ensureSeedCategories();
-    const prods = loadProducts();
-    setCategories(cats);
-    setProducts(prods);
-    if (cats.length) setSelectedCatId(cats[0].id);
+    (async () => {
+      await loadFromServerIfEmpty(); // Carga desde JSON del servidor si localStorage está vacío
+      const cats = ensureSeedCategories();
+      const prods = loadProducts();
+      setCategories(cats);
+      setProducts(prods);
+      if (cats.length) setSelectedCatId(cats[0].id);
+    })();
   }, []);
 
   function persistProducts(next) {

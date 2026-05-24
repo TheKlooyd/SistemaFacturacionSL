@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { loadProducts } from "./productsStore";
+import { loadProducts, loadFromServerIfEmpty } from "./productsStore";
 import { loadCategories } from "./categoriesStore";
 import { clearOrder, getOpenOrder, setOpenOrder } from "./ordersStore";
+import { loadClients, loadClientsFromServer } from "./clientsStore";
 import PayModal from "./PayModal";
 import { addPayment } from "./paymentsStore";
 import { openPrintWindow } from "./print";
@@ -59,18 +60,80 @@ export default function TableOrder({ table, onBack, onPaid }) {
 
   const [payOpen, setPayOpen] = useState(false);
 
+  // Delivery
+  const [isDelivery, setIsDelivery] = useState(
+    () => getOpenOrder(String(table.id))?.isDelivery || false
+  );
+  const [clients, setClients] = useState([]);
+  const [clientQuery, setClientQuery] = useState("");
+  const [selectedClient, setSelectedClient] = useState(
+    () => {
+      const saved = getOpenOrder(String(table.id))?.deliveryClient || null;
+      return saved;
+    }
+  );
+
   function persist(next) {
     setOrder(next);
     setOpenOrder(String(table.id), next);
   }
 
+  function persistDelivery(delivery, client) {
+    const current = getOpenOrder(String(table.id));
+    setOpenOrder(String(table.id), {
+      ...current,
+      isDelivery: delivery,
+      deliveryClient: client,
+    });
+  }
+
+  function toggleDelivery() {
+    const next = !isDelivery;
+    setIsDelivery(next);
+    if (!next) {
+      setSelectedClient(null);
+      setClientQuery("");
+      persistDelivery(false, null);
+    } else {
+      persistDelivery(true, selectedClient);
+    }
+  }
+
+  function selectClient(c) {
+    setSelectedClient(c);
+    setClientQuery("");
+    persistDelivery(true, c);
+  }
+
+  function clearClient() {
+    setSelectedClient(null);
+    setClientQuery("");
+    persistDelivery(true, null);
+  }
+
   useEffect(() => {
-    const cats = loadCategories();
-    const prods = loadProducts();
-    setCategories(cats);
-    setProducts(prods);
-    if (cats.length) setSelectedCatId(cats[0].id);
+    (async () => {
+      await loadFromServerIfEmpty(); // Carga desde JSON del servidor si localStorage está vacío
+      const cats = loadCategories();
+      const prods = loadProducts();
+      setCategories(cats);
+      setProducts(prods);
+      if (cats.length) setSelectedCatId(cats[0].id);
+      // Cargar clientes
+      const loaded = await loadClientsFromServer();
+      setClients(loaded);
+    })();
   }, []);
+
+  const filteredClients = useMemo(() => {
+    const q = clientQuery.trim().toLowerCase();
+    if (!q) return [];
+    return clients.filter(
+      (c) =>
+        (c.name || "").toLowerCase().includes(q) ||
+        (c.phone || "").includes(q)
+    ).slice(0, 8);
+  }, [clients, clientQuery]);
 
   const selectedCat = useMemo(() => {
     return categories.find((c) => c.id === selectedCatId) || null;
@@ -185,13 +248,16 @@ export default function TableOrder({ table, onBack, onPaid }) {
     setPayOpen(true);
   }
 
-  async function confirmPay({ method, tipAmount, paidAmount, totalWithTip }) {
+  async function confirmPay({ paymentSplits, method, tipAmount, paidAmount, totalWithTip }) {
     addPayment({
       id: crypto.randomUUID(),
       createdAt: new Date().toISOString(),
       tableId: table.id,
       tableName: table.name,
+      isDelivery,
+      deliveryClient: isDelivery ? selectedClient : null,
       method,
+      paymentSplits,
       subtotal: total,
       tipAmount,
       totalWithTip,
@@ -208,8 +274,10 @@ export default function TableOrder({ table, onBack, onPaid }) {
     openPrintWindow(
       ticketFactura({
         businessName: "MI RESTAURANTE",
-        tableName: table.name,
+        tableName: isDelivery ? "DELIVERY" : table.name,
         createdAt: new Date().toISOString(),
+        isDelivery,
+        deliveryClient: isDelivery ? selectedClient : null,
         items: order.items.map((it) => ({
           name: it.name,
           unit_price: it.unit_price,
@@ -219,6 +287,7 @@ export default function TableOrder({ table, onBack, onPaid }) {
         tipAmount,
         totalWithTip,
         method,
+        paymentSplits,
         paidAmount,
       }),
       "factura"
@@ -227,6 +296,8 @@ export default function TableOrder({ table, onBack, onPaid }) {
     setPayOpen(false);
     clearOrder(String(table.id));
     persist({ items: [], status: "OPEN" });
+    setIsDelivery(false);
+    setSelectedClient(null);
     await onPaid?.();
   }
 
@@ -253,6 +324,14 @@ export default function TableOrder({ table, onBack, onPaid }) {
             }}
           >
             Imprimir comanda
+          </button>
+
+          <button
+            className={isDelivery ? "btnPrimary" : "btn"}
+            onClick={toggleDelivery}
+            title={isDelivery ? "Desactivar modo delivery" : "Activar modo delivery"}
+          >
+            🛵 {isDelivery ? "Delivery ON" : "Delivery"}
           </button>
 
           <button className="btn" onClick={onBack}>Volver</button>
@@ -339,6 +418,55 @@ export default function TableOrder({ table, onBack, onPaid }) {
             )}
           </div>
         </section>
+
+        {/* CLIENTE DELIVERY */}
+        {isDelivery && (
+          <section className="card" style={{ gridColumn: "1 / -1" }}>
+            <h2 style={{ marginTop: 0 }}>🛵 Cliente Delivery</h2>
+
+            {selectedClient ? (
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 10 }}>
+                <div>
+                  <div style={{ fontWeight: 900, fontSize: 16 }}>{selectedClient.name}</div>
+                  <div style={{ opacity: 0.8, fontSize: 13 }}>📞 {selectedClient.phone}</div>
+                  <div style={{ opacity: 0.8, fontSize: 13 }}>📍 {selectedClient.address}</div>
+                </div>
+                <button className="btn" onClick={clearClient}>Cambiar cliente</button>
+              </div>
+            ) : (
+              <div>
+                <input
+                  className="input"
+                  placeholder="Buscar cliente por nombre o teléfono..."
+                  value={clientQuery}
+                  onChange={(e) => setClientQuery(e.target.value)}
+                  style={{ marginBottom: 8 }}
+                />
+                {filteredClients.length > 0 && (
+                  <div className="list" style={{ maxHeight: 200, overflowY: "auto" }}>
+                    {filteredClients.map((c) => (
+                      <div
+                        key={c.id}
+                        className="listItem"
+                        style={{ cursor: "pointer" }}
+                        onClick={() => selectClient(c)}
+                      >
+                        <div>
+                          <div style={{ fontWeight: 900 }}>{c.name}</div>
+                          <div style={{ opacity: 0.7, fontSize: 13 }}>📞 {c.phone} — 📍 {c.address}</div>
+                        </div>
+                        <button className="btnPrimary" onClick={(e) => { e.stopPropagation(); selectClient(c); }}>Seleccionar</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {clientQuery.trim() && filteredClients.length === 0 && (
+                  <div style={{ opacity: 0.7, fontSize: 13 }}>No se encontraron clientes. Regístralos en "Admin clientes".</div>
+                )}
+              </div>
+            )}
+          </section>
+        )}
 
         {/* CUENTA */}
         <section className="card">

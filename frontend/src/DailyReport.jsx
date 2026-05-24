@@ -13,7 +13,20 @@ function formatCOP(value) {
 }
 
 function todayISO() {
-  return new Date().toISOString().slice(0, 10);
+  const now = new Date();
+  const yyyy = now.getFullYear();
+  const mm = String(now.getMonth() + 1).padStart(2, "0");
+  const dd = String(now.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+// Extrae la fecha local (YYYY-MM-DD) de un ISO string UTC
+function localDateFrom(isoString) {
+  const d = new Date(isoString);
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
 }
 
 function requireKey(actionName = "esta acción") {
@@ -33,9 +46,11 @@ function fmtDateTime(iso) {
   }
 }
 
-// Filtra pagos por fecha YYYY-MM-DD usando createdAt
+// Filtra pagos por fecha YYYY-MM-DD usando la fecha LOCAL de createdAt
 function filterPaymentsByDate(payments, dateISO) {
-  return payments.filter((p) => (p.createdAt || "").slice(0, 10) === dateISO);
+  return payments.filter(
+    (p) => p.createdAt && localDateFrom(p.createdAt) === dateISO
+  );
 }
 
 // Top productos vendidos del día (por total)
@@ -88,16 +103,28 @@ export default function DailyReport({ onBack }) {
     );
   }, [dayPayments]);
 
-  // breakdown por método
+  // breakdown por método (soporta paymentSplits y formato anterior)
   const breakdown = useMemo(() => {
     const map = new Map();
     for (const p of dayPayments) {
-      const key = String(p.method || "N/A").toUpperCase();
-      const cur = map.get(key) || { method: key, tickets: 0, total: 0, tip: 0 };
-      cur.tickets += 1;
-      cur.total += Number(p.totalWithTip || 0);
-      cur.tip += Number(p.tipAmount || 0);
-      map.set(key, cur);
+      if (p.paymentSplits && p.paymentSplits.length > 0) {
+        // nuevo formato: dividir por splits
+        for (const s of p.paymentSplits) {
+          const key = String(s.method || "N/A").toUpperCase();
+          const cur = map.get(key) || { method: key, tickets: 0, total: 0, tip: 0 };
+          cur.tickets += 1;
+          cur.total += Number(s.amount || 0);
+          map.set(key, cur);
+        }
+      } else {
+        // formato anterior: método único
+        const key = String(p.method || "N/A").toUpperCase();
+        const cur = map.get(key) || { method: key, tickets: 0, total: 0, tip: 0 };
+        cur.tickets += 1;
+        cur.total += Number(p.totalWithTip || 0);
+        cur.tip += Number(p.tipAmount || 0);
+        map.set(key, cur);
+      }
     }
     return Array.from(map.values()).sort((a, b) => b.total - a.total);
   }, [dayPayments]);

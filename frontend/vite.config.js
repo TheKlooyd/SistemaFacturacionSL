@@ -5,4 +5,9 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   base: '/SistemaFacturacionSL/',
+  server: {
+    proxy: {
+      '/products-data': 'http://localhost:3001',
+    },
+  },
 })

@@ -19,16 +19,16 @@ function line(name, right) {
 function baseStyles() {
   return `
   <style>
-    @page { size: 80mm auto; margin: 6mm; }
-    body { margin:0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color:#111; }
-    .title { text-align:center; font-weight:800; font-size:16px; margin-bottom:6px; }
-    .sub { text-align:center; font-size:12px; opacity:.8; margin-bottom:10px; }
-    .hr { border-top:1px dashed #999; margin:8px 0; }
-    .row { display:flex; justify-content:space-between; gap:10px; font-size:12px; margin:2px 0; }
-    .left { flex:1; }
+    @page { size: 80mm auto; margin: 4mm 3mm; }
+    body { margin:0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color:#000; font-size:14px; }
+    .title { text-align:center; font-weight:800; font-size:20px; margin-bottom:6px; letter-spacing:0.5px; }
+    .sub { text-align:center; font-size:13px; opacity:.85; margin-bottom:6px; }
+    .hr { border-top:1px dashed #555; margin:8px 0; }
+    .row { display:flex; justify-content:space-between; gap:6px; font-size:14px; margin:3px 0; line-height:1.4; }
+    .left { flex:1; word-break:break-word; }
     .right { white-space:nowrap; }
     .bold { font-weight:800; }
-    .small { font-size:11px; opacity:.85; }
+    .small { font-size:13px; opacity:.9; }
   </style>`;
 }
 
@@ -58,11 +58,14 @@ export function ticketFactura({
   tableName,
   createdAt,
   method,
+  paymentSplits,
   items,
   subtotal,
   tipAmount,
   totalWithTip,
   paidAmount = 0,
+  isDelivery = false,
+  deliveryClient = null,
 }) {
   const dt = new Date(createdAt).toLocaleString("es-CO");
   const change = Math.max(
@@ -85,6 +88,17 @@ export function ticketFactura({
     })
     .join("");
 
+  const deliveryHtml = isDelivery && deliveryClient
+    ? `
+    <div class="hr"></div>
+    <div class="bold" style="font-size:15px;">DATOS DE ENTREGA</div>
+    ${line("Cliente", esc(deliveryClient.name || ""))}
+    ${line("Teléfono", esc(deliveryClient.phone || ""))}
+    ${line("Dirección", esc(deliveryClient.address || ""))}`
+    : isDelivery
+    ? `<div class="hr"></div><div class="small">DELIVERY — sin cliente asignado</div>`
+    : "";
+
   return `
   <html><head>${baseStyles()}</head>
   <body>
@@ -94,7 +108,8 @@ export function ticketFactura({
     ${phone ? `<div class="sub">${esc(phone)}</div>` : ""}
 
     <div class="hr"></div>
-    ${line(`${tableName} — ${dt}`, "")}
+    ${line(`${isDelivery ? "🛵 DELIVERY" : tableName} — ${dt}`, "")}
+    ${deliveryHtml}
     <div class="hr"></div>
 
     ${itemsHtml}
@@ -104,12 +119,26 @@ export function ticketFactura({
     ${line("Propina", `$${formatCOP(tipAmount)}`)}
     ${line("TOTAL", `<span class="bold">$${formatCOP(totalWithTip)}</span>`)}
     <div class="hr"></div>
-    ${line("Método", esc(String(method || "N/A").toUpperCase()))}
-    ${line("Pagó", `$${formatCOP(paidAmount)}`)}
-    ${line("Cambio", `$${formatCOP(change)}`)}
+    ${
+      paymentSplits && paymentSplits.length > 0
+        ? paymentSplits
+            .map((s) =>
+              line(esc(String(s.method || "").toUpperCase()), `$${formatCOP(s.amount)}`)
+            )
+            .join("")
+        : line("Método", esc(String(method || "N/A").toUpperCase())) +
+          line("Pagó", `$${formatCOP(paidAmount)}`)
+    }
+    ${line("TOTAL PAGADO", `<span class="bold">$${formatCOP(paidAmount)}</span>`)}
+    ${change > 0 ? `
+    <div class="hr"></div>
+    <div class="row bold" style="color:#1a7a40;font-size:16px;background:#e8f8ee;padding:6px 8px;border-radius:4px;margin:4px 0;">
+      <div class="left">CAMBIO</div>
+      <div class="right">$${formatCOP(change)}</div>
+    </div>` : ""}
     <div class="hr"></div>
 
-    <div class="small" style="text-align:center;">Gracias por su compra</div>
+    <div style="text-align:center;font-size:14px;margin-top:4px;">Gracias por su compra</div>
   </body></html>`;
 }
 

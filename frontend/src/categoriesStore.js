@@ -1,3 +1,5 @@
+import { syncToServer } from "./productsStore";
+
 const KEY = "mini_pos_categories_v1";
 
 export function loadCategories() {
@@ -13,6 +15,7 @@ export function loadCategories() {
 
 export function saveCategories(categories) {
   localStorage.setItem(KEY, JSON.stringify(categories));
+  syncToServer(); // fire-and-forget: actualiza el JSON del servidor
 }
 
 export function ensureSeedCategories() {
