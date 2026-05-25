@@ -64,13 +64,23 @@ export async function saveDailyClose(closeObj) {
   if (error) console.error("saveDailyClose error:", error);
 }
 
-export async function loadDailyClose() {
-  const { data, error } = await supabase
+export async function loadDailyClose(dateISO) {
+  let query = supabase
     .from("cierres_diarios")
     .select("*")
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
+
+  if (dateISO) {
+    query = supabase
+      .from("cierres_diarios")
+      .select("*")
+      .eq("date_iso", dateISO)
+      .maybeSingle();
+  }
+
+  const { data, error } = await query;
   if (error || !data) return null;
   return data.data;
 }

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   loadPayments,
   loadDailyClose,
+  saveDailyClose,
   deleteDailyClose,
   clearPayments,
 } from "./paymentsStore";
@@ -74,14 +75,15 @@ export default function DailyReport({ onBack }) {
   const [close, setClose] = useState(null);
 
   async function reload() {
-    const [all, closeData] = await Promise.all([loadPayments(), loadDailyClose()]);
+    const [all, closeData] = await Promise.all([loadPayments(), loadDailyClose(date)]);
     setPayments(all);
     setClose(closeData);
   }
 
   useEffect(() => {
     reload();
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [date]);
 
   // pagos del día seleccionado
   const dayPayments = useMemo(
@@ -160,6 +162,35 @@ export default function DailyReport({ onBack }) {
     );
   }
 
+  async function handleGenerateClose() {
+    if (dayPayments.length === 0) {
+      alert("No hay pagos registrados para esta fecha.");
+      return;
+    }
+
+    if (closeForSelectedDate) {
+      const ok = confirm(
+        `Ya existe un cierre generado para ${date}. ¿Deseas sobreescribirlo?`
+      );
+      if (!ok) return;
+    }
+
+    if (!requireKey("generar el cierre diario")) return;
+
+    const closeObj = {
+      dateISO: date,
+      createdAt: new Date().toISOString(),
+      summary: liveSummary,
+      breakdown,
+      topProducts,
+      payments: dayPayments,
+    };
+
+    await saveDailyClose(closeObj);
+    await reload();
+    alert(`✅ Cierre diario generado para ${date}`);
+  }
+
   async function handleClearPayments() {
     if (!requireKey("borrar el historial de pagos")) return;
 
@@ -183,6 +214,10 @@ export default function DailyReport({ onBack }) {
           <button className="btn" onClick={reload}>Recargar</button>
 
 
+
+          <button className="btn" onClick={handleGenerateClose}>
+            Generar cierre diario
+          </button>
 
           <button className="btn" onClick={handlePrintClose}>
             Imprimir cierre
