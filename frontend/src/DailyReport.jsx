@@ -206,69 +206,119 @@ export default function DailyReport({ onBack }) {
 
   return (
     <div className="page">
+      {/* ── Topbar ── */}
       <div className="topbar">
         <h1>Cierre diario</h1>
-
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
           <button className="btn" onClick={onBack}>Volver</button>
           <button className="btn" onClick={reload}>Recargar</button>
-
-
-
-          <button className="btn" onClick={handleGenerateClose}>
-            Generar cierre diario
-          </button>
-
-          <button className="btn" onClick={handlePrintClose}>
-            Imprimir cierre
-          </button>
-
-
-
-          <button className="btn" onClick={handleClearPayments}>
-            Borrar historial de pagos
-          </button>
+          <button className="btn" onClick={handleGenerateClose}>Generar cierre diario</button>
+          <button className="btn" onClick={handlePrintClose}>Imprimir cierre</button>
+          <button className="btn" onClick={handleClearPayments}>Borrar historial de pagos</button>
         </div>
       </div>
 
-      <div className="card" style={{ marginTop: 12 }}>
-        <label className="label">Fecha</label>
-        <input
-          className="input"
-          type="date"
-          value={date}
-          onChange={(e) => setDate(e.target.value)}
-        />
+      {/* ── Fila: selector de fecha + estado de cierre ── */}
+      <div style={{ display: "flex", gap: 12, alignItems: "stretch", marginBottom: 12, flexWrap: "wrap" }}>
+        <div className="card" style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 18px" }}>
+          <label className="label" style={{ margin: 0, whiteSpace: "nowrap" }}>Fecha</label>
+          <input
+            className="input"
+            type="date"
+            value={date}
+            style={{ margin: 0 }}
+            onChange={(e) => setDate(e.target.value)}
+          />
+        </div>
+        {closeForSelectedDate && (
+          <div className="card" style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 18px", color: "var(--brown)", fontWeight: 700 }}>
+            ✅ Cierre generado (snapshot) para esta fecha
+          </div>
+        )}
+      </div>
 
-        <div style={{ marginTop: 18 }}>
-          <h2 style={{ marginBottom: 8 }}>Total del día</h2>
-          <div style={{ fontSize: 26, fontWeight: 900 }}>
+      {/* ── Grid principal: 3 columnas ── */}
+      <div style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+        gap: 12,
+        marginBottom: 12,
+      }}>
+        {/* Columna 1 — Resumen del día */}
+        <div className="card" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <h3 style={{ margin: 0, fontSize: 13, textTransform: "uppercase", letterSpacing: 1, opacity: 0.55 }}>Resumen del día</h3>
+          <div style={{ fontSize: 36, fontWeight: 900, lineHeight: 1, color: "var(--brown)" }}>
             ${formatCOP(liveSummary.total)}
           </div>
-
-          <div style={{ marginTop: 8, opacity: 0.8 }}>
-            Subtotal: ${formatCOP(liveSummary.subtotal)} · Propina: ${formatCOP(liveSummary.tip)} · Tickets: {liveSummary.tickets}
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14 }}>
+              <span style={{ opacity: 0.65 }}>Subtotal</span>
+              <span style={{ fontWeight: 700 }}>${formatCOP(liveSummary.subtotal)}</span>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14 }}>
+              <span style={{ opacity: 0.65 }}>Propina</span>
+              <span style={{ fontWeight: 700 }}>${formatCOP(liveSummary.tip)}</span>
+            </div>
+            <div style={{ height: 1, background: "var(--border)", margin: "2px 0" }} />
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 15 }}>
+              <span style={{ opacity: 0.65 }}>Tickets</span>
+              <span style={{ fontWeight: 900 }}>{liveSummary.tickets}</span>
+            </div>
           </div>
+        </div>
 
-          {closeForSelectedDate && (
-            <div style={{ marginTop: 10, opacity: 0.9 }}>
-              ✅ Hay un cierre generado (snapshot) para esta fecha.
+        {/* Columna 2 — Por método de pago */}
+        <div className="card" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <h3 style={{ margin: 0, fontSize: 13, textTransform: "uppercase", letterSpacing: 1, opacity: 0.55 }}>Por método de pago</h3>
+          {breakdown.length === 0 ? (
+            <div style={{ opacity: 0.55, fontSize: 14 }}>Sin pagos para esta fecha.</div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {breakdown.map((b) => (
+                <div key={b.method} style={{
+                  background: "var(--amber2)",
+                  borderRadius: 10,
+                  padding: "10px 14px",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 2,
+                }}>
+                  <div style={{ fontWeight: 900, fontSize: 15 }}>{b.method}</div>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, opacity: 0.75 }}>
+                    <span>{b.tickets} ticket{b.tickets !== 1 ? "s" : ""}</span>
+                    <span style={{ fontWeight: 700, opacity: 1 }}>${formatCOP(b.total)}</span>
+                  </div>
+                  {b.tip > 0 && (
+                    <div style={{ fontSize: 12, opacity: 0.6 }}>Propina: ${formatCOP(b.tip)}</div>
+                  )}
+                </div>
+              ))}
             </div>
           )}
         </div>
 
-        <div style={{ marginTop: 18 }}>
-          <h3 style={{ marginBottom: 10 }}>Por método</h3>
-          {breakdown.length === 0 ? (
-            <div style={{ opacity: 0.75 }}>No hay pagos en esta fecha.</div>
+        {/* Columna 3 — Top productos */}
+        <div className="card" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <h3 style={{ margin: 0, fontSize: 13, textTransform: "uppercase", letterSpacing: 1, opacity: 0.55 }}>Top productos</h3>
+          {topProducts.length === 0 ? (
+            <div style={{ opacity: 0.55, fontSize: 14 }}>Sin productos para esta fecha.</div>
           ) : (
-            <div className="list">
-              {breakdown.map((b) => (
-                <div className="listItem" key={b.method}>
-                  <div style={{ fontWeight: 800 }}>{b.method}</div>
-                  <div>
-                    {b.tickets} tickets — ${formatCOP(b.total)} (propina: ${formatCOP(b.tip)})
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {topProducts.slice(0, 10).map((p, i) => (
+                <div key={p.name} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <div style={{
+                    width: 22, height: 22, borderRadius: "50%",
+                    background: i === 0 ? "var(--amber)" : "var(--border)",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    fontSize: 11, fontWeight: 900, flexShrink: 0,
+                  }}>
+                    {i + 1}
                   </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 700, fontSize: 14, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</div>
+                    <div style={{ fontSize: 12, opacity: 0.6 }}>{p.qty} uds</div>
+                  </div>
+                  <div style={{ fontWeight: 800, fontSize: 14, whiteSpace: "nowrap" }}>${formatCOP(p.total)}</div>
                 </div>
               ))}
             </div>
@@ -276,59 +326,73 @@ export default function DailyReport({ onBack }) {
         </div>
       </div>
 
-      <div className="card" style={{ marginTop: 12 }}>
-        <h2 style={{ marginBottom: 10 }}>Productos vendidos (Top)</h2>
-
-        {topProducts.length === 0 ? (
-          <div style={{ opacity: 0.75 }}>No hay productos vendidos en esta fecha.</div>
-        ) : (
-          <div className="list">
-            {topProducts.slice(0, 30).map((p) => (
-              <div className="listItem" key={p.name}>
-                <div style={{ fontWeight: 800 }}>{p.name}</div>
-                <div>
-                  {p.qty} uds — ${formatCOP(p.total)}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      <div className="card" style={{ marginTop: 12 }}>
-        <h2 style={{ marginBottom: 10 }}>Detalle de pagos</h2>
-
+      {/* ── Detalle de pagos (ancho completo, scrollable) ── */}
+      <div className="card" style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
+        <h3 style={{ margin: "0 0 12px 0", fontSize: 13, textTransform: "uppercase", letterSpacing: 1, opacity: 0.55 }}>Detalle de pagos</h3>
         {dayPayments.length === 0 ? (
-          <div style={{ opacity: 0.75 }}>No hay pagos registrados en esta fecha.</div>
+          <div style={{ opacity: 0.55, fontSize: 14 }}>No hay pagos registrados en esta fecha.</div>
         ) : (
-          <div className="list">
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+            gap: 10,
+          }}>
             {dayPayments.map((p) => (
-              <div className="listItem" key={p.id} style={{ alignItems: "flex-start" }}>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 900 }}>
-                    {p.tableName || `Mesa ${p.tableId}`} — {String(p.method || "N/A").toUpperCase()}
+              <div key={p.id} style={{
+                background: "var(--panel2)",
+                border: "1px solid var(--border)",
+                borderRadius: 12,
+                padding: "12px 14px",
+                display: "flex",
+                flexDirection: "column",
+                gap: 6,
+              }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                  <div>
+                    <div style={{ fontWeight: 900, fontSize: 15 }}>
+                      {p.tableName || `Mesa ${p.tableId}`}
+                    </div>
+                    <div style={{ fontSize: 12, opacity: 0.55, marginTop: 1 }}>{fmtDateTime(p.createdAt)}</div>
                   </div>
-
-                  <div style={{ opacity: 0.75, fontSize: 12 }}>
-                    {fmtDateTime(p.createdAt)}
-                  </div>
-
-                  <div style={{ marginTop: 6 }}>
-                    Subtotal: ${formatCOP(p.subtotal)} · Propina: ${formatCOP(p.tipAmount)} ·{" "}
-                    <b>Total: ${formatCOP(p.totalWithTip)}</b>
-                  </div>
-
-                  <div style={{ marginTop: 10, opacity: 0.95 }}>
-                    {(p.items || []).map((it, idx) => (
-                      <div key={(it.product_id || idx) + ""} style={{ fontSize: 13 }}>
-                        {it.qty} × {it.name} — ${formatCOP(it.line_total)}
-                      </div>
-                    ))}
+                  <div style={{
+                    background: "var(--amber2)",
+                    color: "var(--brown)",
+                    fontWeight: 900,
+                    fontSize: 13,
+                    borderRadius: 8,
+                    padding: "3px 9px",
+                    whiteSpace: "nowrap",
+                  }}>
+                    {String(p.method || "N/A").toUpperCase()}
                   </div>
                 </div>
 
-                <div style={{ fontWeight: 900, whiteSpace: "nowrap" }}>
-                  ${formatCOP(p.totalWithTip)}
+                <div style={{ height: 1, background: "var(--border)" }} />
+
+                <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                  {(p.items || []).map((it, idx) => (
+                    <div key={(it.product_id || idx) + ""} style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
+                      <span>{it.qty} × {it.name}</span>
+                      <span style={{ fontWeight: 600 }}>${formatCOP(it.line_total)}</span>
+                    </div>
+                  ))}
+                </div>
+
+                <div style={{ height: 1, background: "var(--border)" }} />
+
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
+                  <span style={{ opacity: 0.65 }}>Subtotal</span>
+                  <span>${formatCOP(p.subtotal)}</span>
+                </div>
+                {Number(p.tipAmount) > 0 && (
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
+                    <span style={{ opacity: 0.65 }}>Propina</span>
+                    <span>${formatCOP(p.tipAmount)}</span>
+                  </div>
+                )}
+                <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 900, fontSize: 15 }}>
+                  <span>Total</span>
+                  <span>${formatCOP(p.totalWithTip)}</span>
                 </div>
               </div>
             ))}
