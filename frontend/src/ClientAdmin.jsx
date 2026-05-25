@@ -1,7 +1,5 @@
 import { useEffect, useState } from "react";
 import {
-  loadClients,
-  saveClients,
   loadClientsFromServer,
   addClient,
   updateClient,
@@ -34,7 +32,7 @@ export default function ClientAdmin({ onBack }) {
     setAddress("");
   }
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault();
     const cleanName = name.trim();
     const cleanPhone = phone.trim();
@@ -45,14 +43,14 @@ export default function ClientAdmin({ onBack }) {
     if (!cleanAddress) return alert("La dirección es obligatoria.");
 
     if (editingId) {
-      const next = updateClient(editingId, {
+      const next = await updateClient(editingId, {
         name: cleanName,
         phone: cleanPhone,
         address: cleanAddress,
       });
       setClients(next);
     } else {
-      const next = addClient({
+      const next = await addClient({
         id: crypto.randomUUID(),
         name: cleanName,
         phone: cleanPhone,
@@ -71,10 +69,10 @@ export default function ClientAdmin({ onBack }) {
     setAddress(c.address);
   }
 
-  function handleDelete(id) {
+  async function handleDelete(id) {
     const c = clients.find((x) => x.id === id);
     if (!confirm(`¿Eliminar al cliente "${c?.name || ""}"?`)) return;
-    const next = deleteClient(id);
+    const next = await deleteClient(id);
     setClients(next);
     if (editingId === id) resetForm();
   }

@@ -7,8 +7,10 @@ import {
 
 import {
   loadProducts,
-  saveProducts,
-  loadFromServerIfEmpty,
+  addProduct,
+  updateProduct,
+  deleteProduct,
+  deleteProductsByCategory,
 } from "./productsStore";
 
 function formatCOP(value) {
@@ -44,9 +46,10 @@ export default function ProductAdmin({ onBack }) {
 
   useEffect(() => {
     (async () => {
-      await loadFromServerIfEmpty(); // Carga desde JSON del servidor si localStorage está vacío
-      const cats = ensureSeedCategories();
-      const prods = loadProducts();
+      const [cats, prods] = await Promise.all([
+        ensureSeedCategories(),
+        loadProducts(),
+      ]);
       setCategories(cats);
       setProducts(prods);
       if (cats.length) setSelectedCatId(cats[0].id);
@@ -55,7 +58,6 @@ export default function ProductAdmin({ onBack }) {
 
   function persistProducts(next) {
     setProducts(next);
-    saveProducts(next);
   }
 
   function resetProductForm() {
@@ -69,10 +71,10 @@ export default function ProductAdmin({ onBack }) {
     return products.filter((p) => p.category_id === selectedCatId);
   }, [products, selectedCatId]);
 
-  function handleCreateCategory(e) {
+  async function handleCreateCategory(e) {
     e.preventDefault();
     try {
-      const next = addCategoryStore(newCatName);
+      const next = await addCategoryStore(newCatName);
       setCategories(next);
       setNewCatName("");
       if (!selectedCatId && next.length) setSelectedCatId(next[0].id);
@@ -81,7 +83,7 @@ export default function ProductAdmin({ onBack }) {
     }
   }
 
-  function handleDeleteCategory(catId) {
+  async function handleDeleteCategory(catId) {
     if (!requireKey("eliminar una categoría")) return;
 
     const cat = categories.find((c) => c.id === catId);
@@ -89,7 +91,7 @@ export default function ProductAdmin({ onBack }) {
     if (!ok) return;
 
     try {
-      const next = deleteCategoryStore(catId, products);
+      const next = await deleteCategoryStore(catId, products);
       setCategories(next);
 
       if (selectedCatId === catId) {
@@ -100,7 +102,7 @@ export default function ProductAdmin({ onBack }) {
     }
   }
 
-  function handleSubmitProduct(e) {
+  async function handleSubmitProduct(e) {
     e.preventDefault();
 
     const cleanName = name.trim();
@@ -113,11 +115,11 @@ export default function ProductAdmin({ onBack }) {
     }
 
     if (isEditing) {
-      const next = products.map((p) =>
-        p.id === editingId
-          ? { ...p, name: cleanName, price: numericPrice, category_id: selectedCatId }
-          : p
-      );
+      const next = await updateProduct(editingId, {
+        name: cleanName,
+        price: numericPrice,
+        category_id: selectedCatId,
+      });
       persistProducts(next);
       resetProductForm();
       return;
@@ -130,7 +132,8 @@ export default function ProductAdmin({ onBack }) {
       price: numericPrice,
     };
 
-    persistProducts([newProduct, ...products]);
+    const next = await addProduct(newProduct);
+    persistProducts(next);
     resetProductForm();
   }
 
@@ -141,7 +144,7 @@ export default function ProductAdmin({ onBack }) {
     if (p.category_id) setSelectedCatId(p.category_id);
   }
 
-  function removeProduct(id) {
+  async function removeProduct(id) {
     // aquí es el admin del catálogo: sí pedimos clave
     if (!requireKey("eliminar un producto")) return;
 
@@ -151,11 +154,12 @@ export default function ProductAdmin({ onBack }) {
     const ok = confirm(`¿Eliminar "${p.name}"?`);
     if (!ok) return;
 
-    persistProducts(products.filter((x) => x.id !== id));
+    const next = await deleteProduct(id);
+    persistProducts(next);
     if (editingId === id) resetProductForm();
   }
 
-  function clearAllInCategory() {
+  async function clearAllInCategory() {
     if (!selectedCatId) return;
     if (!requireKey("borrar productos de la categoría")) return;
 
@@ -164,7 +168,8 @@ export default function ProductAdmin({ onBack }) {
     );
     if (!ok) return;
 
-    persistProducts(products.filter((p) => p.category_id !== selectedCatId));
+    const next = await deleteProductsByCategory(selectedCatId);
+    persistProducts(next);
     resetProductForm();
   }
 

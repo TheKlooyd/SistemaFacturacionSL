@@ -1,101 +1,76 @@
-const LS_CLIENTS = "pos_clients_v1";
+import { supabase } from "./supabaseClient";
 
-const API_BASE = import.meta.env.DEV
-  ? `${location.protocol}//${location.hostname}:3001`
-  : "";
+export async function loadClients() {
+  const { data, error } = await supabase
+    .from("clientes")
+    .select("*")
+    .order("created_at", { ascending: false });
 
-// ---------- Load / Save ----------
-export function loadClients() {
-  try {
-    const raw = localStorage.getItem(LS_CLIENTS);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
+  if (error) {
+    console.error("loadClients error:", error);
     return [];
   }
+  return (data || []).map((c) => ({
+    id: c.id,
+    name: c.name,
+    phone: c.phone,
+    address: c.address,
+    notes: c.notes,
+    createdAt: c.created_at,
+  }));
 }
 
-export function saveClients(clients) {
-  localStorage.setItem(LS_CLIENTS, JSON.stringify(clients));
-  syncClientsToServer(); // fire-and-forget
-}
-
-// ---------- Server sync ----------
-export async function syncClientsToServer() {
-  try {
-    const clients = loadClients();
-    await fetch(`${API_BASE}/clients-data`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ clients }),
-    });
-  } catch {
-    // localStorage es la fuente de verdad; fallo de red es silencioso
-  }
-}
-
-const STATIC_CLIENTS_URL = `${import.meta.env.BASE_URL}sabor_latino_jy_clientes.json`;
-
-/**
- * Al arrancar, carga clientes al servidor.
- * Prioridad: 1) API del backend  2) JSON estático en public/  3) localStorage
- */
 export async function loadClientsFromServer() {
-  // 1) Intentar API del backend
-  try {
-    const res = await fetch(`${API_BASE}/clients-data`);
-    if (res.ok) {
-      const data = await res.json();
-      if (Array.isArray(data.clients)) {
-        localStorage.setItem(LS_CLIENTS, JSON.stringify(data.clients));
-        return data.clients;
-      }
-    }
-  } catch {
-    // fail silently
-  }
-
-  // 2) Fallback: JSON estático (funciona en GitHub Pages / hosting estático)
-  try {
-    const res = await fetch(STATIC_CLIENTS_URL);
-    if (res.ok) {
-      const data = await res.json();
-      if (Array.isArray(data.clients)) {
-        localStorage.setItem(LS_CLIENTS, JSON.stringify(data.clients));
-        return data.clients;
-      }
-    }
-  } catch {
-    // fail silently
-  }
-
-  // 3) Último recurso: localStorage
   return loadClients();
 }
 
-// ---------- CRUD helpers ----------
-export function addClient(client) {
-  const all = loadClients();
-  const next = [client, ...all];
-  saveClients(next);
-  return next;
+export async function addClient(client) {
+  const { error } = await supabase.from("clientes").insert({
+    id: client.id || crypto.randomUUID(),
+    name: client.name,
+    phone: client.phone || null,
+    address: client.address || null,
+    notes: client.notes || null,
+    created_at: client.createdAt || new Date().toISOString(),
+  });
+  if (error) console.error("addClient error:", error);
+  return await loadClients();
 }
 
-export function updateClient(id, changes) {
-  const all = loadClients();
-  const next = all.map((c) => (c.id === id ? { ...c, ...changes } : c));
-  saveClients(next);
-  return next;
+export async function updateClient(id, changes) {
+  const dbChanges = {};
+  if (changes.name !== undefined) dbChanges.name = changes.name;
+  if (changes.phone !== undefined) dbChanges.phone = changes.phone;
+  if (changes.address !== undefined) dbChanges.address = changes.address;
+  if (changes.notes !== undefined) dbChanges.notes = changes.notes;
+
+  const { error } = await supabase
+    .from("clientes")
+    .update(dbChanges)
+    .eq("id", id);
+  if (error) console.error("updateClient error:", error);
+  return await loadClients();
 }
 
-export function deleteClient(id) {
-  const all = loadClients();
-  const next = all.filter((c) => c.id !== id);
-  saveClients(next);
-  return next;
+export async function deleteClient(id) {
+  const { error } = await supabase.from("clientes").delete().eq("id", id);
+  if (error) console.error("deleteClient error:", error);
+  return await loadClients();
 }
 
-export function findClientById(id) {
-  return loadClients().find((c) => c.id === id) || null;
+export async function findClientById(id) {
+  const { data, error } = await supabase
+    .from("clientes")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+  if (error || !data) return null;
+  return {
+    id: data.id,
+    name: data.name,
+    phone: data.phone,
+    address: data.address,
+    notes: data.notes,
+    createdAt: data.created_at,
+  };
 }

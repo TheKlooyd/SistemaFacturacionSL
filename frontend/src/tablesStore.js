@@ -1,4 +1,4 @@
-const KEY = "pos_tables_v1";
+import { supabase } from "./supabaseClient";
 
 const DEFAULT_TABLES = Array.from({ length: 12 }, (_, i) => ({
   id: i + 1,
@@ -6,17 +6,23 @@ const DEFAULT_TABLES = Array.from({ length: 12 }, (_, i) => ({
   status: "FREE",
 }));
 
-export function loadTables() {
-  try {
-    const raw = localStorage.getItem(KEY);
-    if (!raw) return DEFAULT_TABLES;
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) && parsed.length > 0 ? parsed : DEFAULT_TABLES;
-  } catch {
+export async function loadTables() {
+  const { data, error } = await supabase
+    .from("mesas")
+    .select("*")
+    .order("id");
+
+  if (error || !data || data.length === 0) {
+    if (error) console.error("loadTables error:", error);
     return DEFAULT_TABLES;
   }
+  return data;
 }
 
-export function saveTables(tables) {
-  localStorage.setItem(KEY, JSON.stringify(tables));
+export async function updateTableStatus(tableId, status) {
+  const { error } = await supabase
+    .from("mesas")
+    .update({ status })
+    .eq("id", tableId);
+  if (error) console.error("updateTableStatus error:", error);
 }

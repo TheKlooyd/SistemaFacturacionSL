@@ -1,105 +1,59 @@
-const LS_PRODUCTS = "pos_products_v2";
-const LS_CATEGORIES = "mini_pos_categories_v1";
+import { supabase } from "./supabaseClient";
 
-/**
- * En dev (Vite), el API está en el backend (puerto 3001), no en el servidor de Vite (5173).
- * En producción, el frontend y el backend comparten el mismo origen.
- * Usamos window.location.hostname para que funcione también desde otros dispositivos en la red.
- */
-const API_BASE = import.meta.env.DEV
-  ? `${location.protocol}//${location.hostname}:3001`
-  : "";
+export async function loadProducts() {
+  const { data, error } = await supabase
+    .from("productos")
+    .select("*")
+    .order("name");
 
-// ---------- Products ----------
-function loadProductsRaw() {
-  try {
-    const raw2 = localStorage.getItem(LS_PRODUCTS);
-    if (raw2) return JSON.parse(raw2);
-
-    // Legacy key (por si existía)
-    const legacy = localStorage.getItem("pos_products_v1");
-    return legacy ? JSON.parse(legacy) : [];
-  } catch {
+  if (error) {
+    console.error("loadProducts error:", error);
     return [];
   }
+  return (data || []).map((p) => ({
+    id: p.id,
+    category_id: p.category_id,
+    name: p.name,
+    price: Number(p.price),
+  }));
 }
 
-export function loadProducts() {
-  return loadProductsRaw();
+export async function addProduct(product) {
+  const { error } = await supabase.from("productos").insert({
+    id: product.id || crypto.randomUUID(),
+    category_id: product.category_id,
+    name: product.name,
+    price: product.price,
+  });
+  if (error) console.error("addProduct error:", error);
+  return await loadProducts();
 }
 
-/**
- * Sincroniza el estado actual de localStorage (categorías + productos) al JSON del servidor.
- * Se ejecuta como fire-and-forget; los fallos de red son silenciosos.
- */
-export async function syncToServer() {
-  try {
-    const products = loadProductsRaw();
-    const categories = (() => {
-      try {
-        return JSON.parse(localStorage.getItem(LS_CATEGORIES) || "[]");
-      } catch {
-        return [];
-      }
-    })();
-    await fetch(`${API_BASE}/products-data`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ categories, products }),
-    });
-  } catch {
-    // localStorage es la fuente de verdad; el fallo de red es silencioso
-  }
+export async function updateProduct(id, changes) {
+  const { error } = await supabase
+    .from("productos")
+    .update(changes)
+    .eq("id", id);
+  if (error) console.error("updateProduct error:", error);
+  return await loadProducts();
 }
 
-export function saveProducts(products) {
-  localStorage.setItem(LS_PRODUCTS, JSON.stringify(products));
-  syncToServer(); // fire-and-forget: actualiza el JSON del servidor
+export async function deleteProduct(id) {
+  const { error } = await supabase.from("productos").delete().eq("id", id);
+  if (error) console.error("deleteProduct error:", error);
+  return await loadProducts();
 }
 
-const STATIC_PRODUCTS_URL = `${import.meta.env.BASE_URL}sabor_latino_jy_productos.json`;
+export async function deleteProductsByCategory(categoryId) {
+  const { error } = await supabase
+    .from("productos")
+    .delete()
+    .eq("category_id", categoryId);
+  if (error) console.error("deleteProductsByCategory error:", error);
+  return await loadProducts();
+}
 
-/**
- * Carga productos y categorías al arrancar.
- * Prioridad: 1) API del backend  2) JSON estático en public/  3) localStorage
- */
+/** Kept for compatibility with older call sites */
 export async function loadFromServerIfEmpty() {
-  // 1) Intentar API del backend
-  try {
-    const res = await fetch(`${API_BASE}/products-data`);
-    if (res.ok) {
-      const data = await res.json();
-      if (
-        Array.isArray(data.products) && data.products.length > 0 &&
-        Array.isArray(data.categories) && data.categories.length > 0
-      ) {
-        localStorage.setItem(LS_PRODUCTS, JSON.stringify(data.products));
-        localStorage.setItem(LS_CATEGORIES, JSON.stringify(data.categories));
-        return data.products;
-      }
-    }
-  } catch {
-    // fail silently
-  }
-
-  // 2) Fallback: JSON estático (funciona en GitHub Pages / hosting estático)
-  try {
-    const res = await fetch(STATIC_PRODUCTS_URL);
-    if (res.ok) {
-      const data = await res.json();
-      if (
-        Array.isArray(data.products) && data.products.length > 0 &&
-        Array.isArray(data.categories) && data.categories.length > 0
-      ) {
-        localStorage.setItem(LS_PRODUCTS, JSON.stringify(data.products));
-        localStorage.setItem(LS_CATEGORIES, JSON.stringify(data.categories));
-        return data.products;
-      }
-    }
-  } catch {
-    // fail silently
-  }
-
-  // 3) Último recurso: localStorage
-  return loadProductsRaw();
+  return await loadProducts();
 }

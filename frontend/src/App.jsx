@@ -6,31 +6,33 @@ import ClientAdmin from "./ClientAdmin";
 import TableOrder from "./TableOrder";
 import DailyReport from "./DailyReport";
 
-import { getOpenOrder } from "./ordersStore";
-import { loadTables as getStoredTables } from "./tablesStore";
+import { loadTables } from "./tablesStore";
+import { getAllOpenOrders } from "./ordersStore";
 
 const BASE = import.meta.env.BASE_URL;
 
 export default function App() {
-  // Hooks arriba siempre
-  const [view, setView] = useState("tables"); // "tables" | "products" | "clients" | "order" | "report"
+  const [view, setView] = useState("tables");
   const [tables, setTables] = useState([]);
+  const [ordersMap, setOrdersMap] = useState({}); // { tableId: orderObj }
   const [loading, setLoading] = useState(true);
   const [selectedTable, setSelectedTable] = useState(null);
 
   function isTableBusy(tableId) {
-    const order = getOpenOrder(String(tableId));
+    const order = ordersMap[String(tableId)];
     return (order?.items?.length || 0) > 0;
   }
 
-  function loadTables() {
+  async function refreshTables() {
     setLoading(true);
-    setTables(getStoredTables());
+    const [tbls, orders] = await Promise.all([loadTables(), getAllOpenOrders()]);
+    setTables(tbls);
+    setOrdersMap(orders);
     setLoading(false);
   }
 
   useEffect(() => {
-    if (view === "tables") loadTables();
+    if (view === "tables") refreshTables();
   }, [view]);
 
   // Vistas condicionales (después de hooks)
@@ -65,7 +67,7 @@ export default function App() {
           table={selectedTable}
           onBack={() => setView("tables")}
           onPaid={() => {
-            loadTables();
+            refreshTables();
             setView("tables");
           }}
         />
@@ -88,7 +90,7 @@ export default function App() {
             Admin clientes
           </button>
 
-          <button className="btn" onClick={loadTables}>
+          <button className="btn" onClick={refreshTables}>
             Refrescar
           </button>
 

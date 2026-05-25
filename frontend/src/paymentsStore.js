@@ -1,48 +1,84 @@
-// paymentsStore.js
-const PAYMENTS_KEY = "miniPOS:payments_v1";
-const CLOSE_KEY = "miniPOS:dailyClose_v1";
+import { supabase } from "./supabaseClient";
 
-// ===== Payments (ledger) =====
-export function loadPayments() {
-  try {
-    const raw = localStorage.getItem(PAYMENTS_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
+export async function loadPayments() {
+  const { data, error } = await supabase
+    .from("pagos")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("loadPayments error:", error);
     return [];
   }
+  return (data || []).map((p) => ({
+    id: p.id,
+    createdAt: p.created_at,
+    tableId: p.table_id,
+    tableName: p.table_name,
+    isDelivery: p.is_delivery,
+    deliveryClient: p.delivery_client,
+    method: p.method,
+    paymentSplits: p.payment_splits,
+    subtotal: p.subtotal,
+    tipAmount: p.tip_amount,
+    totalWithTip: p.total_with_tip,
+    paidAmount: p.paid_amount,
+    items: p.items,
+  }));
 }
 
-export function savePayments(payments) {
-  localStorage.setItem(PAYMENTS_KEY, JSON.stringify(payments));
+export async function addPayment(payment) {
+  const { error } = await supabase.from("pagos").insert({
+    id: payment.id,
+    table_id: payment.tableId,
+    table_name: payment.tableName,
+    is_delivery: payment.isDelivery || false,
+    delivery_client: payment.deliveryClient || null,
+    method: payment.method || null,
+    payment_splits: payment.paymentSplits || null,
+    subtotal: payment.subtotal,
+    tip_amount: payment.tipAmount,
+    total_with_tip: payment.totalWithTip,
+    paid_amount: payment.paidAmount,
+    items: payment.items,
+    created_at: payment.createdAt || new Date().toISOString(),
+  });
+  if (error) console.error("addPayment error:", error);
 }
 
-export function addPayment(payment) {
-  const all = loadPayments();
-  all.unshift(payment); // más reciente arriba
-  savePayments(all);
+export async function clearPayments() {
+  const { error } = await supabase
+    .from("pagos")
+    .delete()
+    .gte("created_at", "2020-01-01");
+  if (error) console.error("clearPayments error:", error);
 }
 
-export function clearPayments() {
-  localStorage.removeItem(PAYMENTS_KEY);
+export async function saveDailyClose(closeObj) {
+  const { error } = await supabase
+    .from("cierres_diarios")
+    .upsert(
+      { date_iso: closeObj.dateISO, data: closeObj, created_at: new Date().toISOString() },
+      { onConflict: "date_iso" }
+    );
+  if (error) console.error("saveDailyClose error:", error);
 }
 
-// ===== Daily Close (snapshot) =====
-export function saveDailyClose(closeObj) {
-  localStorage.setItem(CLOSE_KEY, JSON.stringify(closeObj));
+export async function loadDailyClose() {
+  const { data, error } = await supabase
+    .from("cierres_diarios")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error || !data) return null;
+  return data.data;
 }
 
-export function loadDailyClose() {
-  try {
-    const raw = localStorage.getItem(CLOSE_KEY);
-    if (!raw) return null;
-    return JSON.parse(raw);
-  } catch {
-    return null;
-  }
-}
-
-export function deleteDailyClose() {
-  localStorage.removeItem(CLOSE_KEY);
+export async function deleteDailyClose() {
+  const { error } = await supabase
+    .from("cierres_diarios")
+    .delete()
+    .gte("created_at", "2020-01-01");
+  if (error) console.error("deleteDailyClose error:", error);
 }

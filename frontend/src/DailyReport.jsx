@@ -73,10 +73,10 @@ export default function DailyReport({ onBack }) {
   const [payments, setPayments] = useState([]);
   const [close, setClose] = useState(null);
 
-  function reload() {
-    const all = loadPayments();
+  async function reload() {
+    const [all, closeData] = await Promise.all([loadPayments(), loadDailyClose()]);
     setPayments(all);
-    setClose(loadDailyClose());
+    setClose(closeData);
   }
 
   useEffect(() => {
@@ -160,7 +160,7 @@ export default function DailyReport({ onBack }) {
     );
   }
 
-  function handleClearPayments() {
+  async function handleClearPayments() {
     if (!requireKey("borrar el historial de pagos")) return;
 
     const ok = confirm(
@@ -168,9 +168,8 @@ export default function DailyReport({ onBack }) {
     );
     if (!ok) return;
 
-    clearPayments();
-    deleteDailyClose();
-    reload();
+    await Promise.all([clearPayments(), deleteDailyClose()]);
+    await reload();
     alert("Historial borrado ✅");
   }
 

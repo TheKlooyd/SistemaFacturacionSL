@@ -1,54 +1,57 @@
-import { syncToServer } from "./productsStore";
+import { supabase } from "./supabaseClient";
 
-const KEY = "mini_pos_categories_v1";
+export async function loadCategories() {
+  const { data, error } = await supabase
+    .from("categorias")
+    .select("*")
+    .order("name");
 
-export function loadCategories() {
-  try {
-    const raw = localStorage.getItem(KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
+  if (error) {
+    console.error("loadCategories error:", error);
     return [];
   }
+  return (data || []).map((c) => ({ id: c.id, name: c.name }));
 }
 
-export function saveCategories(categories) {
-  localStorage.setItem(KEY, JSON.stringify(categories));
-  syncToServer(); // fire-and-forget: actualiza el JSON del servidor
-}
-
-export function ensureSeedCategories() {
-  const current = loadCategories();
-  if (current.length) return current;
+export async function ensureSeedCategories() {
+  const cats = await loadCategories();
+  if (cats.length) return cats;
 
   const seed = [
     { id: crypto.randomUUID(), name: "Pizzas" },
     { id: crypto.randomUUID(), name: "Bebidas" },
   ];
-  saveCategories(seed);
-  return seed;
+  const { error } = await supabase.from("categorias").insert(seed);
+  if (error) console.error("ensureSeedCategories error:", error);
+  return await loadCategories();
 }
 
-export function addCategory(name) {
+export async function addCategory(name) {
   const clean = String(name || "").trim();
   if (!clean) throw new Error("Nombre inválido");
 
-  const all = loadCategories();
-  const exists = all.some((c) => c.name.toLowerCase() === clean.toLowerCase());
+  const all = await loadCategories();
+  const exists = all.some(
+    (c) => c.name.toLowerCase() === clean.toLowerCase()
+  );
   if (exists) throw new Error("Esa categoría ya existe");
 
-  const next = [{ id: crypto.randomUUID(), name: clean }, ...all];
-  saveCategories(next);
-  return next;
+  const newCat = { id: crypto.randomUUID(), name: clean };
+  const { error } = await supabase.from("categorias").insert(newCat);
+  if (error) throw new Error(error.message);
+
+  return await loadCategories();
 }
 
-export function deleteCategory(categoryId, products = []) {
+export async function deleteCategory(categoryId, products = []) {
   const used = products.some((p) => p.category_id === categoryId);
   if (used) throw new Error("No puedes borrar una categoría con productos.");
 
-  const all = loadCategories();
-  const next = all.filter((c) => c.id !== categoryId);
-  saveCategories(next);
-  return next;
+  const { error } = await supabase
+    .from("categorias")
+    .delete()
+    .eq("id", categoryId);
+  if (error) throw new Error(error.message);
+
+  return await loadCategories();
 }

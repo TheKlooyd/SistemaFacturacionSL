@@ -54,37 +54,27 @@ export default function TableOrder({ table, onBack, onPaid }) {
   // Subcategoría (tamaño) SOLO para pizzas
   const [pizzaSize, setPizzaSize] = useState("ALL"); // ALL | PORCIÓN | PERSONAL | ...
 
-  const [order, setOrder] = useState(() =>
-    getOpenOrder(String(table.id)) || { items: [], status: "OPEN" }
-  );
+  const [order, setOrder] = useState({ items: [], status: "OPEN" });
 
   const [payOpen, setPayOpen] = useState(false);
 
   // Delivery
-  const [isDelivery, setIsDelivery] = useState(
-    () => getOpenOrder(String(table.id))?.isDelivery || false
-  );
+  const [isDelivery, setIsDelivery] = useState(false);
   const [clients, setClients] = useState([]);
   const [clientQuery, setClientQuery] = useState("");
-  const [selectedClient, setSelectedClient] = useState(
-    () => {
-      const saved = getOpenOrder(String(table.id))?.deliveryClient || null;
-      return saved;
-    }
-  );
+  const [selectedClient, setSelectedClient] = useState(null);
 
   function persist(next) {
     setOrder(next);
-    setOpenOrder(String(table.id), next);
+    setOpenOrder(String(table.id), next).catch(console.error);
   }
 
   function persistDelivery(delivery, client) {
-    const current = getOpenOrder(String(table.id));
     setOpenOrder(String(table.id), {
-      ...current,
+      ...order,
       isDelivery: delivery,
       deliveryClient: client,
-    });
+    }).catch(console.error);
   }
 
   function toggleDelivery() {
@@ -113,15 +103,21 @@ export default function TableOrder({ table, onBack, onPaid }) {
 
   useEffect(() => {
     (async () => {
-      await loadFromServerIfEmpty(); // Carga desde JSON del servidor si localStorage está vacío
-      const cats = loadCategories();
-      const prods = loadProducts();
+      const [cats, prods, loadedClients, savedOrder] = await Promise.all([
+        loadCategories(),
+        loadProducts(),
+        loadClientsFromServer(),
+        getOpenOrder(String(table.id)),
+      ]);
       setCategories(cats);
       setProducts(prods);
       if (cats.length) setSelectedCatId(cats[0].id);
-      // Cargar clientes
-      const loaded = await loadClientsFromServer();
-      setClients(loaded);
+      setClients(loadedClients);
+      if (savedOrder) {
+        setOrder(savedOrder);
+        setIsDelivery(savedOrder.isDelivery || false);
+        setSelectedClient(savedOrder.deliveryClient || null);
+      }
     })();
   }, []);
 
@@ -249,7 +245,7 @@ export default function TableOrder({ table, onBack, onPaid }) {
   }
 
   async function confirmPay({ paymentSplits, method, tipAmount, paidAmount, totalWithTip }) {
-    addPayment({
+    await addPayment({
       id: crypto.randomUUID(),
       createdAt: new Date().toISOString(),
       tableId: table.id,
@@ -294,8 +290,8 @@ export default function TableOrder({ table, onBack, onPaid }) {
     );
 
     setPayOpen(false);
-    clearOrder(String(table.id));
-    persist({ items: [], status: "OPEN" });
+    await clearOrder(String(table.id));
+    setOrder({ items: [], status: "OPEN" });
     setIsDelivery(false);
     setSelectedClient(null);
     await onPaid?.();
@@ -310,14 +306,13 @@ export default function TableOrder({ table, onBack, onPaid }) {
           <button
             className="btn"
             onClick={() => {
-              const current = getOpenOrder(String(table.id));
-              if (!current.items?.length) return alert("No hay productos para imprimir.");
+              if (!order.items?.length) return alert("No hay productos para imprimir.");
 
               openPrintWindow(
                 ticketComanda({
                   tableName: table.name,
                   createdAt: new Date().toISOString(),
-                  items: current.items.map((i) => ({ qty: i.qty, name: i.name })),
+                  items: order.items.map((i) => ({ qty: i.qty, name: i.name })),
                 }),
                 "comanda"
               );
