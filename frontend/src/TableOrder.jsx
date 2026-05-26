@@ -58,6 +58,25 @@ export default function TableOrder({ table, onBack, onPaid }) {
 
   const [payOpen, setPayOpen] = useState(false);
 
+  // Notas por producto
+  const [noteModalId, setNoteModalId] = useState(null);
+  const [noteText, setNoteText] = useState("");
+
+  function openNoteModal(it) {
+    setNoteModalId(it.product_id);
+    setNoteText(it.note || "");
+  }
+
+  function saveNote() {
+    if (noteModalId == null) return;
+    const nextItems = order.items.map((x) =>
+      x.product_id === noteModalId ? { ...x, note: noteText.trim() } : x
+    );
+    persist({ ...order, items: nextItems });
+    setNoteModalId(null);
+    setNoteText("");
+  }
+
   // Delivery
   const [isDelivery, setIsDelivery] = useState(false);
   const [clients, setClients] = useState([]);
@@ -312,7 +331,7 @@ export default function TableOrder({ table, onBack, onPaid }) {
                 ticketComanda({
                   tableName: table.name,
                   createdAt: new Date().toISOString(),
-                  items: order.items.map((i) => ({ qty: i.qty, name: i.name })),
+                  items: order.items.map((i) => ({ qty: i.qty, name: i.name, note: i.note || "" })),
                 }),
                 "comanda"
               );
@@ -472,20 +491,35 @@ export default function TableOrder({ table, onBack, onPaid }) {
           ) : (
             <div className="orderLines">
               {order.items.map((it) => (
-                <div key={it.product_id} className="orderLine">
-                  <div>
-                    <div style={{ fontWeight: 900 }}>{it.name}</div>
-                    <div style={{ opacity: 0.8 }}>${formatCOP(it.unit_price)} c/u</div>
-                  </div>
-
-                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <button className="btn" onClick={() => changeQty(it.product_id, -1)}>–</button>
-
-                    <div style={{ minWidth: 24, textAlign: "center", fontWeight: 900 }}>
-                      {it.qty}
+                <div key={it.product_id} className="orderLine" style={{ flexDirection: "column", alignItems: "stretch", gap: 4 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div>
+                      <div style={{ fontWeight: 900 }}>{it.name}</div>
+                      <div style={{ opacity: 0.8 }}>${formatCOP(it.unit_price)} c/u</div>
                     </div>
 
-                    <button className="btn" onClick={() => changeQty(it.product_id, +1)}>+</button>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <button className="btn" onClick={() => changeQty(it.product_id, -1)}>–</button>
+
+                      <div style={{ minWidth: 24, textAlign: "center", fontWeight: 900 }}>
+                        {it.qty}
+                      </div>
+
+                      <button className="btn" onClick={() => changeQty(it.product_id, +1)}>+</button>
+                    </div>
+                  </div>
+
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <button
+                      className="btn"
+                      style={{ fontSize: 12, padding: "2px 10px" }}
+                      onClick={() => openNoteModal(it)}
+                    >
+                      {it.note ? "✏️ Editar nota" : "📝 Añadir nota"}
+                    </button>
+                    {it.note && (
+                      <span style={{ fontSize: 12, opacity: 0.75, fontStyle: "italic" }}>"{it.note}"</span>
+                    )}
                   </div>
                 </div>
               ))}
@@ -510,6 +544,60 @@ export default function TableOrder({ table, onBack, onPaid }) {
           </div>
         </section>
       </div>
+
+      {/* Modal de nota */}
+      {noteModalId != null && (
+        <div
+          style={{
+            position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)",
+            display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999,
+          }}
+          onClick={() => setNoteModalId(null)}
+        >
+          <div
+            style={{
+              background: "#fff", borderRadius: 12, padding: 24, width: 340,
+              boxShadow: "0 8px 32px rgba(0,0,0,0.25)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 style={{ marginTop: 0, marginBottom: 12 }}>Nota del producto</h3>
+            <div style={{ opacity: 0.7, fontSize: 13, marginBottom: 8 }}>
+              {order.items.find((x) => x.product_id === noteModalId)?.name}
+            </div>
+            <textarea
+              autoFocus
+              className="input"
+              rows={3}
+              style={{ width: "100%", resize: "vertical", boxSizing: "border-box" }}
+              placeholder="Ej: sin piña, término medio, extra salsa..."
+              value={noteText}
+              onChange={(e) => setNoteText(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); saveNote(); } }}
+            />
+            <div style={{ display: "flex", gap: 10, marginTop: 12, justifyContent: "flex-end" }}>
+              <button className="btn" onClick={() => setNoteModalId(null)}>Cancelar</button>
+              {noteText.trim() === "" && order.items.find((x) => x.product_id === noteModalId)?.note && (
+                <button
+                  className="btn"
+                  style={{ color: "#c0392b" }}
+                  onClick={() => {
+                    const nextItems = order.items.map((x) =>
+                      x.product_id === noteModalId ? { ...x, note: "" } : x
+                    );
+                    persist({ ...order, items: nextItems });
+                    setNoteModalId(null);
+                    setNoteText("");
+                  }}
+                >
+                  Quitar nota
+                </button>
+              )}
+              <button className="btnPrimary" onClick={saveNote}>Guardar</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <PayModal
         open={payOpen}

@@ -35,7 +35,10 @@ function baseStyles() {
 export function ticketComanda({ tableName, createdAt, items }) {
   const dt = new Date(createdAt).toLocaleString("es-CO");
   const itemsHtml = (items || [])
-    .map((i) => line(`${i.qty} x ${i.name}`, ""))
+    .map((i) => {
+      const noteHtml = i.note ? `<div class="small" style="padding-left:12px;font-style:italic;">↳ ${esc(i.note)}</div>` : "";
+      return line(`${i.qty} x ${i.name}`, "") + noteHtml;
+    })
     .join("");
 
   return `
@@ -84,6 +87,7 @@ export function ticketFactura({
       return `
         ${line(`${qty} x ${name}`, `$${formatCOP(lineTotal)}`)}
         <div class="small">  $${formatCOP(unit)} c/u</div>
+        ${i.note ? `<div class="small" style="padding-left:12px;font-style:italic;">↳ ${esc(i.note)}</div>` : ""}
       `;
     })
     .join("");
