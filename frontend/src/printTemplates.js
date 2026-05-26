@@ -32,6 +32,45 @@ function baseStyles() {
   </style>`;
 }
 
+export function ticketCuenta({ tableName, items, subtotal, tipAmount, totalWithTip, isDelivery = false }) {
+  const dt = new Date().toLocaleString("es-CO");
+
+  const itemsHtml = (items || [])
+    .map((i) => {
+      const qty = Number(i.qty) || 0;
+      const unit = Number(i.unit_price) || 0;
+      const lineTotal = i.line_total != null ? Number(i.line_total) : unit * qty;
+      return `
+        ${line(`${qty} x ${esc(i.name || "")}`, `$${formatCOP(lineTotal)}`)}
+        <div class="small" style="padding-left:12px;">$${formatCOP(unit)} c/u</div>
+        ${i.note ? `<div class="small" style="padding-left:12px;font-style:italic;">↳ ${esc(i.note)}</div>` : ""}
+      `;
+    })
+    .join("");
+
+  return `
+  <html><head>${baseStyles()}</head>
+  <body>
+    <div class="title">SABOR LATINO</div>
+    <div class="sub">Nequi: 317 231 6964</div>
+    <div class="sub">${esc(isDelivery ? "🛵 DELIVERY" : tableName)} — ${esc(dt)}</div>
+    <div class="hr"></div>
+
+    ${itemsHtml}
+
+    <div class="hr"></div>
+    ${line("Subtotal", `$${formatCOP(subtotal)}`)}
+    ${line("Propina sugerida (10%)", `$${formatCOP(tipAmount)}`)}
+    <div class="hr"></div>
+    <div class="row bold" style="font-size:17px;">
+      <div class="left">TOTAL</div>
+      <div class="right">$${formatCOP(totalWithTip)}</div>
+    </div>
+    <div class="hr"></div>
+    <div style="text-align:center;font-size:13px;margin-top:6px;">Gracias por su visita</div>
+  </body></html>`;
+}
+
 export function ticketComanda({ tableName, createdAt, items }) {
   const dt = new Date(createdAt).toLocaleString("es-CO");
   const itemsHtml = (items || [])

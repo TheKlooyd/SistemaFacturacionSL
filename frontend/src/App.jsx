@@ -5,6 +5,7 @@ import ProductAdmin from "./ProductAdmin";
 import ClientAdmin from "./ClientAdmin";
 import TableOrder from "./TableOrder";
 import DailyReport from "./DailyReport";
+import InvoiceAdmin from "./InvoiceAdmin";
 
 import { loadTables } from "./tablesStore";
 import { getAllOpenOrders } from "./ordersStore";
@@ -60,6 +61,14 @@ export default function App() {
     );
   }
 
+  if (view === "invoices") {
+    return (
+      <div className="page">
+        <InvoiceAdmin onBack={() => setView("tables")} />
+      </div>
+    );
+  }
+
   if (view === "order" && selectedTable) {
     return (
       <div className="page">
@@ -92,6 +101,10 @@ export default function App() {
 
           <button className="btn" onClick={refreshTables}>
             Refrescar
+          </button>
+
+          <button className="btn" onClick={() => setView("invoices")}>
+            Admin facturas
           </button>
 
           <button className="btn" onClick={() => setView("report")}>

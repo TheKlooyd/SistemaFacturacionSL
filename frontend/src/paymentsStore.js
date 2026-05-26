@@ -46,6 +46,27 @@ export async function addPayment(payment) {
   if (error) console.error("addPayment error:", error);
 }
 
+export async function updatePayment(id, changes) {
+  const payload = {};
+  if (changes.items !== undefined) payload.items = changes.items;
+  if (changes.subtotal !== undefined) payload.subtotal = changes.subtotal;
+  if (changes.total_with_tip !== undefined) payload.total_with_tip = changes.total_with_tip;
+
+  const { error } = await supabase
+    .from("pagos")
+    .update(payload)
+    .eq("id", id);
+  if (error) console.error("updatePayment error:", error);
+}
+
+export async function deletePayment(id) {
+  const { error } = await supabase
+    .from("pagos")
+    .delete()
+    .eq("id", id);
+  if (error) console.error("deletePayment error:", error);
+}
+
 export async function clearPayments() {
   const { error } = await supabase
     .from("pagos")

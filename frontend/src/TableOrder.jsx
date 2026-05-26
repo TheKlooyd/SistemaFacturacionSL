@@ -6,7 +6,7 @@ import { loadClients, loadClientsFromServer } from "./clientsStore";
 import PayModal from "./PayModal";
 import { addPayment } from "./paymentsStore";
 import { openPrintWindow } from "./print";
-import { ticketComanda, ticketFactura } from "./printTemplates";
+import { ticketComanda, ticketFactura, ticketCuenta } from "./printTemplates";
 
 function formatCOP(value) {
   return new Intl.NumberFormat("es-CO").format(value || 0);
@@ -57,6 +57,7 @@ export default function TableOrder({ table, onBack, onPaid }) {
   const [order, setOrder] = useState({ items: [], status: "OPEN" });
 
   const [payOpen, setPayOpen] = useState(false);
+  const [billOpen, setBillOpen] = useState(false);
 
   // Notas por producto
   const [noteModalId, setNoteModalId] = useState(null);
@@ -241,6 +242,9 @@ export default function TableOrder({ table, onBack, onPaid }) {
   const total = useMemo(() => {
     return order.items.reduce((acc, it) => acc + it.unit_price * it.qty, 0);
   }, [order.items]);
+
+  const tipSuggested = Math.round(total * 0.1);
+  const totalWithTip = total + tipSuggested;
 
   const filteredProducts = useMemo(() => {
     let list = products.filter((p) => p.category_id === selectedCatId);
@@ -485,7 +489,18 @@ export default function TableOrder({ table, onBack, onPaid }) {
 
         {/* CUENTA */}
         <section className="card">
-          <h2 style={{ marginTop: 0 }}>Cuenta</h2>
+          <h2 style={{ marginTop: 0, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            Cuenta
+            {order.items.length > 0 && (
+              <button
+                className="btnPrimary"
+                style={{ fontSize: 13, padding: "6px 14px" }}
+                onClick={() => setBillOpen(true)}
+              >
+                Sacar cuenta
+              </button>
+            )}
+          </h2>
 
           {order.items.length === 0 ? (
             <p style={{ opacity: 0.8 }}>No hay productos aún.</p>
@@ -607,6 +622,113 @@ export default function TableOrder({ table, onBack, onPaid }) {
         onCancel={() => setPayOpen(false)}
         onConfirm={confirmPay}
       />
+
+      {/* Modal Sacar Cuenta */}
+      {billOpen && (
+        <div
+          style={{
+            position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)",
+            display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999,
+          }}
+          onClick={() => setBillOpen(false)}
+        >
+          <div
+            style={{
+              background: "#fff", borderRadius: 14, padding: 28, width: 380,
+              maxWidth: "95vw", maxHeight: "90vh", overflowY: "auto",
+              boxShadow: "0 8px 40px rgba(0,0,0,0.3)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Encabezado restaurante */}
+            <div style={{ textAlign: "center", marginBottom: 16 }}>
+              <div style={{ fontWeight: 900, fontSize: 24, letterSpacing: 0.5, textTransform: "uppercase" }}>
+                Sabor Latino
+              </div>
+              <div style={{ fontSize: 14, color: "#555", marginTop: 6 }}>Nequi: 317 231 6964</div>
+              <div style={{ fontSize: 14, color: "#555", marginTop: 2 }}>
+                {isDelivery ? "🛵 DELIVERY" : table.name}
+              </div>
+            </div>
+
+            <hr style={{ borderTop: "1px dashed #bbb", margin: "12px 0" }} />
+
+            {/* Productos */}
+            <div style={{ marginBottom: 4 }}>
+              {order.items.map((it) => {
+                const lineTotal = it.unit_price * it.qty;
+                return (
+                  <div key={it.product_id} style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: 15 }}>{it.qty} x {it.name}</div>
+                      <div style={{ fontSize: 12, color: "#888" }}>${formatCOP(it.unit_price)} c/u</div>
+                      {it.note && (
+                        <div style={{ fontSize: 12, color: "#888", fontStyle: "italic" }}>↳ {it.note}</div>
+                      )}
+                    </div>
+                    <div style={{ fontWeight: 700, fontSize: 15, whiteSpace: "nowrap", marginLeft: 12 }}>
+                      ${formatCOP(lineTotal)}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <hr style={{ borderTop: "1px dashed #bbb", margin: "12px 0" }} />
+
+            {/* Totales */}
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6, fontSize: 15 }}>
+              <span>Subtotal</span>
+              <span>${formatCOP(total)}</span>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6, fontSize: 15, color: "#666" }}>
+              <span>Propina sugerida (10%)</span>
+              <span>${formatCOP(tipSuggested)}</span>
+            </div>
+
+            <hr style={{ borderTop: "1px dashed #bbb", margin: "12px 0" }} />
+
+            <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 900, fontSize: 20 }}>
+              <span>TOTAL</span>
+              <span>${formatCOP(totalWithTip)}</span>
+            </div>
+
+            <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
+              <button
+                className="btnPrimary"
+                style={{ flex: 1 }}
+                onClick={() => {
+                  openPrintWindow(
+                    ticketCuenta({
+                      tableName: table.name,
+                      isDelivery,
+                      items: order.items.map((it) => ({
+                        name: it.name,
+                        unit_price: it.unit_price,
+                        qty: it.qty,
+                        note: it.note || "",
+                      })),
+                      subtotal: total,
+                      tipAmount: tipSuggested,
+                      totalWithTip,
+                    }),
+                    "cuenta"
+                  );
+                }}
+              >
+                🖨️ Imprimir cuenta
+              </button>
+              <button
+                className="btn"
+                style={{ flex: 1 }}
+                onClick={() => setBillOpen(false)}
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
