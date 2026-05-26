@@ -4,6 +4,25 @@ function formatCOP(value) {
   return new Intl.NumberFormat("es-CO").format(value || 0);
 }
 
+// Strip formatting and return integer
+function parseNum(str) {
+  const digits = String(str ?? "").replace(/[^0-9]/g, "");
+  return digits === "" ? 0 : parseInt(digits, 10);
+}
+
+// Format a raw input string with thousands separators
+function handleNumInput(raw) {
+  const digits = String(raw ?? "").replace(/[^0-9]/g, "");
+  if (digits === "") return "";
+  return new Intl.NumberFormat("es-CO").format(parseInt(digits, 10));
+}
+
+// Convert number to formatted string for display
+function numToStr(num) {
+  if (!num && num !== 0) return "";
+  return new Intl.NumberFormat("es-CO").format(num);
+}
+
 const ALL_METHODS = ["EFECTIVO", "TARJETA", "TRANSFERENCIA"];
 
 const METHOD_ICONS = {
@@ -19,38 +38,53 @@ export default function PayModal({
   onCancel,
   onConfirm,
 }) {
-  const [tipAmount, setTipAmount] = useState(0);
-  const [splits, setSplits] = useState([{ method: "EFECTIVO", amount: 0 }]);
+  const [tipStr, setTipStr] = useState("0");
+  const [splits, setSplits] = useState([{ method: "EFECTIVO", amountStr: "0" }]);
   const [showAddMenu, setShowAddMenu] = useState(false);
+  const [discountType, setDiscountType] = useState("PERCENT"); // "PERCENT" | "AMOUNT"
+  const [discountStr, setDiscountStr] = useState("");
 
-  const totalWithTip = useMemo(() => total + tipAmount, [total, tipAmount]);
+  const tipAmount = parseNum(tipStr);
+
+  const discountAmount = useMemo(() => {
+    const v = parseNum(discountStr);
+    if (discountType === "PERCENT") return Math.round((total * Math.min(v, 100)) / 100);
+    return Math.min(v, total);
+  }, [discountStr, discountType, total]);
+
+  const afterDiscount = useMemo(() => Math.max(0, total - discountAmount), [total, discountAmount]);
+
+  const totalWithTip = useMemo(() => afterDiscount + tipAmount, [afterDiscount, tipAmount]);
 
   // Reset cuando se abre
   useEffect(() => {
     if (open) {
       const tip = Math.round((total * defaultTipPercent) / 100);
-      setTipAmount(tip);
-      setSplits([{ method: "EFECTIVO", amount: total + tip }]);
+      setTipStr(numToStr(tip));
+      setSplits([{ method: "EFECTIVO", amountStr: numToStr(total + tip) }]);
       setShowAddMenu(false);
+      setDiscountType("PERCENT");
+      setDiscountStr("");
     }
   }, [open, total, defaultTipPercent]);
 
-  // Actualizar el monto de EFECTIVO cuando cambia la propina
-  function changeTipByAmount(value) {
-    const tip = Number(value) || 0;
-    setTipAmount(tip);
-    const newTotal = total + tip;
+  // Recalcular monto del split cuando cambia el total (descuento o propina)
+  useEffect(() => {
     setSplits((prev) => {
-      // Si solo hay un método, actualizar su monto al nuevo total
-      if (prev.length === 1) return [{ ...prev[0], amount: newTotal }];
+      if (prev.length === 1) return [{ ...prev[0], amountStr: numToStr(totalWithTip) }];
       return prev;
     });
+  }, [totalWithTip]);
+
+  // Actualizar el monto cuando cambia la propina
+  function changeTipByAmount(value) {
+    setTipStr(handleNumInput(value));
   }
 
   function changeTipByPercent(percent) {
-    const p = Number(percent) || 0;
-    const tip = Math.round((total * p) / 100);
-    changeTipByAmount(tip);
+    const p = parseNum(percent) || 0;
+    const tip = Math.round((afterDiscount * p) / 100);
+    setTipStr(tip > 0 ? numToStr(tip) : "");
   }
 
   // Métodos disponibles para agregar (los que no están en splits)
@@ -59,9 +93,9 @@ export default function PayModal({
   );
 
   function addSplit(method) {
-    const currentSum = splits.reduce((s, x) => s + (Number(x.amount) || 0), 0);
+    const currentSum = splits.reduce((s, x) => s + parseNum(x.amountStr), 0);
     const remaining = Math.max(0, totalWithTip - currentSum);
-    setSplits((prev) => [...prev, { method, amount: remaining }]);
+    setSplits((prev) => [...prev, { method, amountStr: remaining > 0 ? numToStr(remaining) : "" }]);
     setShowAddMenu(false);
   }
 
@@ -70,14 +104,14 @@ export default function PayModal({
   }
 
   function updateSplitAmount(index, value) {
-    const num = Number(value) || 0;
+    const formatted = handleNumInput(value);
     setSplits((prev) =>
-      prev.map((s, i) => (i === index ? { ...s, amount: num } : s))
+      prev.map((s, i) => (i === index ? { ...s, amountStr: formatted } : s))
     );
   }
 
   const totalPaid = useMemo(
-    () => splits.reduce((sum, s) => sum + (Number(s.amount) || 0), 0),
+    () => splits.reduce((sum, s) => sum + parseNum(s.amountStr), 0),
     [splits]
   );
 
@@ -89,11 +123,58 @@ export default function PayModal({
 
   return (
     <div className="modalOverlay">
-      <div className="modalCard">
+      <div className="modalCard modalCardScroll">
         <h2>Registrar pago</h2>
 
         <div className="modalSection">
           <b>Total cuenta:</b> ${formatCOP(total)}
+        </div>
+
+        {/* Descuento */}
+        <div className="modalSection">
+          <b>Descuento</b>
+          <div style={{ display: "flex", gap: 8, marginTop: 8, alignItems: "center", flexWrap: "wrap" }}>
+            <div style={{ display: "flex", borderRadius: 8, overflow: "hidden", border: "1px solid rgba(0,0,0,.15)" }}>
+              <button
+                className={discountType === "PERCENT" ? "btnPrimary" : "btn"}
+                style={{ borderRadius: 0, padding: "4px 14px", fontSize: "0.9em" }}
+                onClick={() => { setDiscountType("PERCENT"); setDiscountValue(0); }}
+              >
+                %
+              </button>
+              <button
+                className={discountType === "AMOUNT" ? "btnPrimary" : "btn"}
+                style={{ borderRadius: 0, padding: "4px 14px", fontSize: "0.9em" }}
+                onClick={() => { setDiscountType("AMOUNT"); setDiscountValue(0); }}
+              >
+                $
+              </button>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <span style={{ opacity: 0.6 }}>{discountType === "PERCENT" ? "%" : "$"}</span>
+              <input
+                className="input"
+                type="text"
+                inputMode="numeric"
+                value={discountStr}
+                onChange={(e) => {
+                  if (discountType === "PERCENT") {
+                    const digits = e.target.value.replace(/[^0-9]/g, "");
+                    setDiscountStr(digits === "" ? "" : String(Math.min(parseInt(digits, 10), 100)));
+                  } else {
+                    setDiscountStr(handleNumInput(e.target.value));
+                  }
+                }}
+                placeholder="0"
+                style={{ width: 100 }}
+              />
+            </div>
+            {discountAmount > 0 && (
+              <span style={{ color: "#27ae60", fontWeight: 600, fontSize: "0.95em" }}>
+                − ${formatCOP(discountAmount)} → ${formatCOP(afterDiscount)}
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Propina */}
@@ -104,9 +185,12 @@ export default function PayModal({
               <label>%</label>
               <input
                 className="input"
-                type="number"
-                min="0"
-                onChange={(e) => changeTipByPercent(e.target.value)}
+                type="text"
+                inputMode="numeric"
+                onChange={(e) => {
+                  const digits = e.target.value.replace(/[^0-9]/g, "");
+                  changeTipByPercent(digits);
+                }}
                 placeholder="0"
               />
             </div>
@@ -114,10 +198,11 @@ export default function PayModal({
               <label>$</label>
               <input
                 className="input"
-                type="number"
-                min="0"
-                value={tipAmount}
+                type="text"
+                inputMode="numeric"
+                value={tipStr}
                 onChange={(e) => changeTipByAmount(e.target.value)}
+                placeholder="0"
               />
             </div>
           </div>
@@ -151,10 +236,11 @@ export default function PayModal({
                   <span style={{ opacity: 0.6 }}>$</span>
                   <input
                     className="input"
-                    type="number"
-                    min="0"
-                    value={split.amount}
+                    type="text"
+                    inputMode="numeric"
+                    value={split.amountStr}
                     onChange={(e) => updateSplitAmount(index, e.target.value)}
+                    placeholder="0"
                     style={{ flex: 1, minWidth: 90 }}
                   />
                   {splits.length > 1 && (
@@ -253,9 +339,10 @@ export default function PayModal({
             disabled={!canConfirm}
             onClick={() => {
               onConfirm({
-                paymentSplits: splits,
+                paymentSplits: splits.map((s) => ({ ...s, amount: parseNum(s.amountStr) })),
                 method: splits.map((s) => s.method).join(" + "),
                 tipAmount,
+                discountAmount,
                 paidAmount: totalPaid,
                 totalWithTip,
               });

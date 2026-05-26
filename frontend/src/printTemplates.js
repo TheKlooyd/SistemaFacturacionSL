@@ -32,7 +32,7 @@ function baseStyles() {
   </style>`;
 }
 
-export function ticketCuenta({ tableName, items, subtotal, tipAmount, totalWithTip, isDelivery = false }) {
+export function ticketCuenta({ tableName, items, subtotal, tipAmount, discountAmount = 0, totalWithTip, isDelivery = false }) {
   const dt = new Date().toLocaleString("es-CO");
 
   const itemsHtml = (items || [])
@@ -60,6 +60,7 @@ export function ticketCuenta({ tableName, items, subtotal, tipAmount, totalWithT
 
     <div class="hr"></div>
     ${line("Subtotal", `$${formatCOP(subtotal)}`)}
+    ${discountAmount > 0 ? line("Descuento", `<span style="color:#1a7a40">− $${formatCOP(discountAmount)}</span>`) : ""}
     ${line("Propina sugerida (10%)", `$${formatCOP(tipAmount)}`)}
     <div class="hr"></div>
     <div class="row bold" style="font-size:17px;">
@@ -104,6 +105,7 @@ export function ticketFactura({
   items,
   subtotal,
   tipAmount,
+  discountAmount = 0,
   totalWithTip,
   paidAmount = 0,
   isDelivery = false,
@@ -160,6 +162,7 @@ export function ticketFactura({
 
     <div class="hr"></div>
     ${line("Subtotal", `$${formatCOP(subtotal)}`)}
+    ${discountAmount > 0 ? line("Descuento", `<span style="color:#1a7a40">− $${formatCOP(discountAmount)}</span>`) : ""}
     ${line("Propina", `$${formatCOP(tipAmount)}`)}
     ${line("TOTAL", `<span class="bold">$${formatCOP(totalWithTip)}</span>`)}
     <div class="hr"></div>
@@ -189,6 +192,8 @@ export function ticketFactura({
 export function ticketCierre({ dateISO, summary, breakdown, topProducts }) {
   const dt = new Date().toLocaleString("es-CO");
 
+  const breakdownTotal = (breakdown || []).reduce((s, b) => s + Number(b.total || 0), 0);
+
   const byMethod = (breakdown || [])
     .map((b) => line(`${b.method} (${b.tickets})`, `$${formatCOP(b.total)}`))
     .join("");
@@ -207,7 +212,7 @@ export function ticketCierre({ dateISO, summary, breakdown, topProducts }) {
     ${line("Tickets", String(summary?.tickets || 0))}
     ${line("Subtotal", `$${formatCOP(summary?.subtotal || 0)}`)}
     ${line("Propinas", `$${formatCOP(summary?.tip || 0)}`)}
-    ${line("TOTAL", `<span class="bold">$${formatCOP(summary?.total || 0)}</span>`)}
+    ${line("TOTAL", `<span class="bold">$${formatCOP(breakdownTotal)}</span>`)}
 
     <div class="hr"></div>
     <div class="bold">Por método</div>

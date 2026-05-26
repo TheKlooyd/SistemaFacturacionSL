@@ -373,6 +373,10 @@ body{
   display:flex;
   flex-direction: column;
   gap: 10px;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 4px;
 }
 
 .orderLine{
@@ -544,6 +548,11 @@ body{
   box-shadow: 0 20px 60px rgba(0,0,0,.20);
   padding: 18px;
   backdrop-filter: blur(10px);
+}
+
+.modalCardScroll{
+  max-height: 92dvh;
+  overflow-y: auto;
 }
 
 .modalCard h2{

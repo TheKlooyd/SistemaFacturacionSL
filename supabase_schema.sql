@@ -62,6 +62,7 @@ CREATE TABLE IF NOT EXISTS pagos (
   payment_splits JSONB,
   subtotal       NUMERIC(12, 2),
   tip_amount     NUMERIC(12, 2),
+  discount_amount NUMERIC(12, 2) NOT NULL DEFAULT 0,
   total_with_tip NUMERIC(12, 2),
   paid_amount    NUMERIC(12, 2),
   items          JSONB,

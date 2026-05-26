@@ -267,7 +267,7 @@ export default function TableOrder({ table, onBack, onPaid }) {
     setPayOpen(true);
   }
 
-  async function confirmPay({ paymentSplits, method, tipAmount, paidAmount, totalWithTip }) {
+  async function confirmPay({ paymentSplits, method, tipAmount, discountAmount, paidAmount, totalWithTip }) {
     await addPayment({
       id: crypto.randomUUID(),
       createdAt: new Date().toISOString(),
@@ -279,6 +279,7 @@ export default function TableOrder({ table, onBack, onPaid }) {
       paymentSplits,
       subtotal: total,
       tipAmount,
+      discountAmount: discountAmount || 0,
       totalWithTip,
       paidAmount,
       items: order.items.map((it) => ({
@@ -305,6 +306,7 @@ export default function TableOrder({ table, onBack, onPaid }) {
         })),
         subtotal: total,
         tipAmount,
+        discountAmount: discountAmount || 0,
         totalWithTip,
         method,
         paymentSplits,
@@ -488,7 +490,7 @@ export default function TableOrder({ table, onBack, onPaid }) {
         )}
 
         {/* CUENTA */}
-        <section className="card">
+        <section className="card" style={{ display: "flex", flexDirection: "column", overflow: "hidden" }}>
           <h2 style={{ marginTop: 0, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             Cuenta
             {order.items.length > 0 && (

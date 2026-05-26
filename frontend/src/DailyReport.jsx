@@ -109,13 +109,18 @@ export default function DailyReport({ onBack }) {
   const breakdown = useMemo(() => {
     const map = new Map();
     for (const p of dayPayments) {
+      const paymentTotal = Number(p.totalWithTip || 0);
       if (p.paymentSplits && p.paymentSplits.length > 0) {
         // nuevo formato: dividir por splits
+        // Normalizar los montos al totalWithTip para evitar discrepancias cuando
+        // el cliente entrega más efectivo del que debe (vuelto/cambio).
+        const splitsSum = p.paymentSplits.reduce((s, x) => s + Number(x.amount || 0), 0);
+        const scale = splitsSum > 0 ? paymentTotal / splitsSum : 1;
         for (const s of p.paymentSplits) {
           const key = String(s.method || "N/A").toUpperCase();
           const cur = map.get(key) || { method: key, tickets: 0, total: 0, tip: 0 };
           cur.tickets += 1;
-          cur.total += Number(s.amount || 0);
+          cur.total += Math.round(Number(s.amount || 0) * scale);
           map.set(key, cur);
         }
       } else {
@@ -123,7 +128,7 @@ export default function DailyReport({ onBack }) {
         const key = String(p.method || "N/A").toUpperCase();
         const cur = map.get(key) || { method: key, tickets: 0, total: 0, tip: 0 };
         cur.tickets += 1;
-        cur.total += Number(p.totalWithTip || 0);
+        cur.total += paymentTotal;
         cur.tip += Number(p.tipAmount || 0);
         map.set(key, cur);
       }
@@ -218,6 +223,9 @@ export default function DailyReport({ onBack }) {
         </div>
       </div>
 
+      {/* ── Contenido scrollable ── */}
+      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column" }}>
+
       {/* ── Fila: selector de fecha + estado de cierre ── */}
       <div style={{ display: "flex", gap: 12, alignItems: "stretch", marginBottom: 12, flexWrap: "wrap" }}>
         <div className="card" style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 18px" }}>
@@ -248,7 +256,7 @@ export default function DailyReport({ onBack }) {
         <div className="card" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <h3 style={{ margin: 0, fontSize: 13, textTransform: "uppercase", letterSpacing: 1, opacity: 0.55 }}>Resumen del día</h3>
           <div style={{ fontSize: 36, fontWeight: 900, lineHeight: 1, color: "var(--brown)" }}>
-            ${formatCOP(liveSummary.total)}
+            ${formatCOP(breakdown.reduce((s, b) => s + b.total, 0))}
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14 }}>
@@ -326,8 +334,8 @@ export default function DailyReport({ onBack }) {
         </div>
       </div>
 
-      {/* ── Detalle de pagos (ancho completo, scrollable) ── */}
-      <div className="card" style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
+      {/* ── Detalle de pagos (ancho completo) ── */}
+      <div className="card" style={{ marginBottom: 0 }}>
         <h3 style={{ margin: "0 0 12px 0", fontSize: 13, textTransform: "uppercase", letterSpacing: 1, opacity: 0.55 }}>Detalle de pagos</h3>
         {dayPayments.length === 0 ? (
           <div style={{ opacity: 0.55, fontSize: 14 }}>No hay pagos registrados en esta fecha.</div>
@@ -399,6 +407,7 @@ export default function DailyReport({ onBack }) {
           </div>
         )}
       </div>
+      </div>{/* fin contenido scrollable */}
     </div>
   );
 }
