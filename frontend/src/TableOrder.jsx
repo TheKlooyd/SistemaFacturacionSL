@@ -297,6 +297,7 @@ export default function TableOrder({ table, onBack, onPaid }) {
           name: it.name,
           unit_price: it.unit_price,
           qty: it.qty,
+          note: it.note || "",
         })),
         subtotal: total,
         tipAmount,
