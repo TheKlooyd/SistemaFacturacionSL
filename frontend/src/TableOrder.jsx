@@ -12,6 +12,13 @@ function formatCOP(value) {
   return new Intl.NumberFormat("es-CO").format(value || 0);
 }
 
+// Display qty as fraction when decimal (0.5 → "½", 1.5 → "1½")
+function fmtQty(qty) {
+  if (qty === 0.5) return "½";
+  if (qty % 1 === 0.5) return Math.floor(qty) + "½";
+  return String(qty);
+}
+
 // Extrae "(Personal)" "(Mediana)" "(Grande)" "(Extragrande)" "(Porción)" al final del nombre
 function extractSizeFromName(name = "") {
   const m = /\(([^)]+)\)\s*$/.exec(String(name));
@@ -203,29 +210,33 @@ export default function TableOrder({ table, onBack, onPaid }) {
     return true;
   }
 
-  function addProduct(p) {
+  function addProduct(p, increment = 1) {
     const existing = order.items.find((x) => x.product_id === p.id);
     let nextItems;
 
     if (existing) {
       nextItems = order.items.map((x) =>
-        x.product_id === p.id ? { ...x, qty: x.qty + 1 } : x
+        x.product_id === p.id ? { ...x, qty: x.qty + increment } : x
       );
     } else {
       nextItems = [
         ...order.items,
-        { product_id: p.id, name: p.name, unit_price: p.price, qty: 1 },
+        { product_id: p.id, name: p.name, unit_price: p.price, qty: increment },
       ];
     }
 
     persist({ ...order, items: nextItems });
   }
 
+  function addHalf(p) {
+    addProduct(p, 0.5);
+  }
+
   function changeQty(product_id, delta) {
     const current = order.items.find((x) => x.product_id === product_id);
     if (!current) return;
 
-    const willDelete = delta < 0 && current.qty === 1;
+    const willDelete = delta < 0 && current.qty + delta <= 0;
     if (willDelete) {
       if (!requireKey()) return;
     }
@@ -423,18 +434,35 @@ export default function TableOrder({ table, onBack, onPaid }) {
               </p>
             ) : (
               <div className="productsGrid">
-                {filteredProducts.map((p) => (
-                  <div key={p.id} className="listItem">
-                    <div>
-                      <div style={{ fontWeight: 900 }}>{p.name}</div>
-                      <div style={{ opacity: 0.8 }}>${formatCOP(p.price)}</div>
-                    </div>
+                {filteredProducts.map((p) => {
+                  const isHalfable =
+                    isPizzaCategory &&
+                    normalizeSize(p.size ?? extractSizeFromName(p.name)) !== "PORCIÓN";
+                  return (
+                    <div key={p.id} className="listItem">
+                      <div>
+                        <div style={{ fontWeight: 900 }}>{p.name}</div>
+                        <div style={{ opacity: 0.8 }}>${formatCOP(p.price)}</div>
+                      </div>
 
-                    <button className="btnPrimary" onClick={() => addProduct(p)}>
-                      + Agregar
-                    </button>
-                  </div>
-                ))}
+                      <div style={{ display: "flex", gap: 6 }}>
+                        {isHalfable && (
+                          <button
+                            className="btn"
+                            style={{ fontSize: "0.85em", padding: "4px 10px" }}
+                            onClick={() => addHalf(p)}
+                            title="Agregar media pizza"
+                          >
+                            ½ Mitad
+                          </button>
+                        )}
+                        <button className="btnPrimary" onClick={() => addProduct(p)}>
+                          + Agregar
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -520,7 +548,7 @@ export default function TableOrder({ table, onBack, onPaid }) {
                       <button className="btn" onClick={() => changeQty(it.product_id, -1)}>–</button>
 
                       <div style={{ minWidth: 24, textAlign: "center", fontWeight: 900 }}>
-                        {it.qty}
+                        {fmtQty(it.qty)}
                       </div>
 
                       <button className="btn" onClick={() => changeQty(it.product_id, +1)}>+</button>
@@ -662,7 +690,7 @@ export default function TableOrder({ table, onBack, onPaid }) {
                 return (
                   <div key={it.product_id} style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
                     <div>
-                      <div style={{ fontWeight: 700, fontSize: 15 }}>{it.qty} x {it.name}</div>
+                      <div style={{ fontWeight: 700, fontSize: 15 }}>{fmtQty(it.qty)} x {it.name}</div>
                       <div style={{ fontSize: 12, color: "#888" }}>${formatCOP(it.unit_price)} c/u</div>
                       {it.note && (
                         <div style={{ fontSize: 12, color: "#888", fontStyle: "italic" }}>↳ {it.note}</div>

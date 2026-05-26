@@ -15,6 +15,7 @@ export async function loadProducts() {
     category_id: p.category_id,
     name: p.name,
     price: Number(p.price),
+    size: p.size ?? null,
   }));
 }
 
