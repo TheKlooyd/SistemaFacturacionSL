@@ -18,11 +18,3 @@ export async function loadTables() {
   }
   return data;
 }
-
-export async function updateTableStatus(tableId, status) {
-  const { error } = await supabase
-    .from("mesas")
-    .update({ status })
-    .eq("id", tableId);
-  if (error) console.error("updateTableStatus error:", error);
-}

@@ -20,10 +20,6 @@ export async function loadClients() {
   }));
 }
 
-export async function loadClientsFromServer() {
-  return loadClients();
-}
-
 export async function addClient(client) {
   const { error } = await supabase.from("clientes").insert({
     id: client.id || crypto.randomUUID(),
@@ -56,21 +52,4 @@ export async function deleteClient(id) {
   const { error } = await supabase.from("clientes").delete().eq("id", id);
   if (error) console.error("deleteClient error:", error);
   return await loadClients();
-}
-
-export async function findClientById(id) {
-  const { data, error } = await supabase
-    .from("clientes")
-    .select("*")
-    .eq("id", id)
-    .maybeSingle();
-  if (error || !data) return null;
-  return {
-    id: data.id,
-    name: data.name,
-    phone: data.phone,
-    address: data.address,
-    notes: data.notes,
-    createdAt: data.created_at,
-  };
 }

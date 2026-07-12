@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { loadProducts, loadFromServerIfEmpty } from "./productsStore";
+import { loadProducts } from "./productsStore";
 import { loadCategories } from "./categoriesStore";
 import { clearOrder, getOpenOrder, setOpenOrder } from "./ordersStore";
-import { loadClients, loadClientsFromServer } from "./clientsStore";
+import { loadClients } from "./clientsStore";
 import PayModal from "./PayModal";
 import { addPayment } from "./paymentsStore";
 import { openPrintWindow } from "./print";
@@ -128,12 +128,34 @@ export default function TableOrder({ table, onBack, onPaid }) {
     persistDelivery(true, null);
   }
 
+  function handleSelectCategory(categoryId) {
+    setSelectedCatId(categoryId);
+    setPizzaSize("ALL");
+  }
+
+  function handleCategoryQueryChange(value) {
+    setCatQuery(value);
+
+    const q = value.trim().toLowerCase();
+    const nextFiltered = !q
+      ? categories
+      : categories.filter((c) => (c.name || "").toLowerCase().includes(q));
+
+    if (!nextFiltered.length) return;
+
+    const stillVisible = nextFiltered.some((c) => c.id === selectedCatId);
+    if (!stillVisible) {
+      setSelectedCatId(nextFiltered[0].id);
+      setPizzaSize("ALL");
+    }
+  }
+
   useEffect(() => {
     (async () => {
       const [cats, prods, loadedClients, savedOrder] = await Promise.all([
         loadCategories(),
         loadProducts(),
-        loadClientsFromServer(),
+        loadClients(),
         getOpenOrder(String(table.id)),
       ]);
       setCategories(cats);
@@ -146,7 +168,7 @@ export default function TableOrder({ table, onBack, onPaid }) {
         setSelectedClient(savedOrder.deliveryClient || null);
       }
     })();
-  }, []);
+  }, [table.id]);
 
   const filteredClients = useMemo(() => {
     const q = clientQuery.trim().toLowerCase();
@@ -166,23 +188,11 @@ export default function TableOrder({ table, onBack, onPaid }) {
     return (selectedCat?.name || "").toLowerCase().includes("pizza");
   }, [selectedCat]);
 
-  // Reset tamaño al cambiar de categoría
-  useEffect(() => {
-    setPizzaSize("ALL");
-  }, [selectedCatId]);
-
   const filteredCategories = useMemo(() => {
     const q = catQuery.trim().toLowerCase();
     if (!q) return categories;
     return categories.filter((c) => (c.name || "").toLowerCase().includes(q));
   }, [categories, catQuery]);
-
-  // Si filtras y la categoría seleccionada no queda visible, selecciona la primera
-  useEffect(() => {
-    if (!filteredCategories.length) return;
-    const stillVisible = filteredCategories.some((c) => c.id === selectedCatId);
-    if (!stillVisible) setSelectedCatId(filteredCategories[0].id);
-  }, [filteredCategories, selectedCatId]);
 
   // Tamaños disponibles dentro de esa categoría de pizza (según los productos)
   const pizzaSizesAvailable = useMemo(() => {
@@ -381,7 +391,7 @@ export default function TableOrder({ table, onBack, onPaid }) {
             className="input"
             placeholder="Buscar categoría..."
             value={catQuery}
-            onChange={(e) => setCatQuery(e.target.value)}
+            onChange={(e) => handleCategoryQueryChange(e.target.value)}
             style={{ marginTop: 10, marginBottom: 10 }}
           />
 
@@ -392,7 +402,7 @@ export default function TableOrder({ table, onBack, onPaid }) {
                 <button
                   key={c.id}
                   className={`catBtn ${active ? "active" : ""}`}
-                  onClick={() => setSelectedCatId(c.id)}
+                  onClick={() => handleSelectCategory(c.id)}
                 >
                   {c.name}
                 </button>
@@ -645,13 +655,14 @@ export default function TableOrder({ table, onBack, onPaid }) {
         </div>
       )}
 
-      <PayModal
-        open={payOpen}
-        total={total}
-        defaultTipPercent={10}
-        onCancel={() => setPayOpen(false)}
-        onConfirm={confirmPay}
-      />
+      {payOpen && (
+        <PayModal
+          total={total}
+          defaultTipPercent={10}
+          onCancel={() => setPayOpen(false)}
+          onConfirm={confirmPay}
+        />
+      )}
 
       {/* Modal Sacar Cuenta */}
       {billOpen && (

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
 function formatCOP(value) {
   return new Intl.NumberFormat("es-CO").format(value || 0);
@@ -23,6 +23,23 @@ function numToStr(num) {
   return new Intl.NumberFormat("es-CO").format(num);
 }
 
+function getDiscountAmount(total, discountType, discountStr) {
+  const value = parseNum(discountStr);
+  if (discountType === "PERCENT") {
+    return Math.round((total * Math.min(value, 100)) / 100);
+  }
+  return Math.min(value, total);
+}
+
+function formatDiscountInput(rawValue, discountType) {
+  if (discountType === "PERCENT") {
+    const digits = String(rawValue ?? "").replace(/[^0-9]/g, "");
+    return digits === "" ? "" : String(Math.min(parseInt(digits, 10), 100));
+  }
+
+  return handleNumInput(rawValue);
+}
+
 const ALL_METHODS = ["EFECTIVO", "TARJETA", "TRANSFERENCIA"];
 
 const METHOD_ICONS = {
@@ -32,14 +49,17 @@ const METHOD_ICONS = {
 };
 
 export default function PayModal({
-  open,
   total,
   defaultTipPercent = 10,
   onCancel,
   onConfirm,
 }) {
-  const [tipStr, setTipStr] = useState("0");
-  const [splits, setSplits] = useState([{ method: "EFECTIVO", amountStr: "0" }]);
+  const initialTip = Math.round((total * defaultTipPercent) / 100);
+
+  const [tipStr, setTipStr] = useState(() => numToStr(initialTip));
+  const [splits, setSplits] = useState(() => [
+    { method: "EFECTIVO", amountStr: numToStr(total + initialTip) },
+  ]);
   const [showAddMenu, setShowAddMenu] = useState(false);
   const [discountType, setDiscountType] = useState("PERCENT"); // "PERCENT" | "AMOUNT"
   const [discountStr, setDiscountStr] = useState("");
@@ -47,44 +67,51 @@ export default function PayModal({
   const tipAmount = parseNum(tipStr);
 
   const discountAmount = useMemo(() => {
-    const v = parseNum(discountStr);
-    if (discountType === "PERCENT") return Math.round((total * Math.min(v, 100)) / 100);
-    return Math.min(v, total);
+    return getDiscountAmount(total, discountType, discountStr);
   }, [discountStr, discountType, total]);
 
   const afterDiscount = useMemo(() => Math.max(0, total - discountAmount), [total, discountAmount]);
 
   const totalWithTip = useMemo(() => afterDiscount + tipAmount, [afterDiscount, tipAmount]);
 
-  // Reset cuando se abre
-  useEffect(() => {
-    if (open) {
-      const tip = Math.round((total * defaultTipPercent) / 100);
-      setTipStr(numToStr(tip));
-      setSplits([{ method: "EFECTIVO", amountStr: numToStr(total + tip) }]);
-      setShowAddMenu(false);
-      setDiscountType("PERCENT");
-      setDiscountStr("");
-    }
-  }, [open, total, defaultTipPercent]);
-
-  // Recalcular monto del split cuando cambia el total (descuento o propina)
-  useEffect(() => {
+  function syncSingleSplit(nextTotalWithTip) {
     setSplits((prev) => {
-      if (prev.length === 1) return [{ ...prev[0], amountStr: numToStr(totalWithTip) }];
+      if (prev.length === 1) return [{ ...prev[0], amountStr: numToStr(nextTotalWithTip) }];
       return prev;
     });
-  }, [totalWithTip]);
+  }
 
   // Actualizar el monto cuando cambia la propina
   function changeTipByAmount(value) {
-    setTipStr(handleNumInput(value));
+    const nextTipStr = handleNumInput(value);
+    const nextTipAmount = parseNum(nextTipStr);
+
+    setTipStr(nextTipStr);
+    syncSingleSplit(afterDiscount + nextTipAmount);
   }
 
   function changeTipByPercent(percent) {
     const p = parseNum(percent) || 0;
     const tip = Math.round((afterDiscount * p) / 100);
-    setTipStr(tip > 0 ? numToStr(tip) : "");
+    const nextTipStr = tip > 0 ? numToStr(tip) : "";
+
+    setTipStr(nextTipStr);
+    syncSingleSplit(afterDiscount + tip);
+  }
+
+  function resetDiscount(nextType) {
+    setDiscountType(nextType);
+    setDiscountStr("");
+    syncSingleSplit(total + tipAmount);
+  }
+
+  function changeDiscount(value) {
+    const nextDiscountStr = formatDiscountInput(value, discountType);
+    const nextDiscountAmount = getDiscountAmount(total, discountType, nextDiscountStr);
+    const nextAfterDiscount = Math.max(0, total - nextDiscountAmount);
+
+    setDiscountStr(nextDiscountStr);
+    syncSingleSplit(nextAfterDiscount + tipAmount);
   }
 
   // Métodos disponibles para agregar (los que no están en splits)
@@ -119,8 +146,6 @@ export default function PayModal({
   const remaining = totalWithTip - totalPaid;
   const canConfirm = totalPaid >= totalWithTip && splits.length > 0;
 
-  if (!open) return null;
-
   return (
     <div className="modalOverlay">
       <div className="modalCard modalCardScroll">
@@ -138,14 +163,14 @@ export default function PayModal({
               <button
                 className={discountType === "PERCENT" ? "btnPrimary" : "btn"}
                 style={{ borderRadius: 0, padding: "4px 14px", fontSize: "0.9em" }}
-                onClick={() => { setDiscountType("PERCENT"); setDiscountValue(0); }}
+                onClick={() => resetDiscount("PERCENT")}
               >
                 %
               </button>
               <button
                 className={discountType === "AMOUNT" ? "btnPrimary" : "btn"}
                 style={{ borderRadius: 0, padding: "4px 14px", fontSize: "0.9em" }}
-                onClick={() => { setDiscountType("AMOUNT"); setDiscountValue(0); }}
+                onClick={() => resetDiscount("AMOUNT")}
               >
                 $
               </button>
@@ -157,14 +182,7 @@ export default function PayModal({
                 type="text"
                 inputMode="numeric"
                 value={discountStr}
-                onChange={(e) => {
-                  if (discountType === "PERCENT") {
-                    const digits = e.target.value.replace(/[^0-9]/g, "");
-                    setDiscountStr(digits === "" ? "" : String(Math.min(parseInt(digits, 10), 100)));
-                  } else {
-                    setDiscountStr(handleNumInput(e.target.value));
-                  }
-                }}
+                onChange={(e) => changeDiscount(e.target.value)}
                 placeholder="0"
                 style={{ width: 100 }}
               />

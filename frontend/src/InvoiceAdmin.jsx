@@ -55,8 +55,22 @@ export default function InvoiceAdmin({ onBack }) {
   }
 
   useEffect(() => {
-    reload();
-    loadProducts().then(setProducts);
+    let cancelled = false;
+
+    void (async () => {
+      const [all, loadedProducts] = await Promise.all([
+        loadPayments(),
+        loadProducts(),
+      ]);
+
+      if (cancelled) return;
+      setPayments(all);
+      setProducts(loadedProducts);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const dayPayments = useMemo(

@@ -53,8 +53,3 @@ export async function deleteProductsByCategory(categoryId) {
   if (error) console.error("deleteProductsByCategory error:", error);
   return await loadProducts();
 }
-
-/** Kept for compatibility with older call sites */
-export async function loadFromServerIfEmpty() {
-  return await loadProducts();
-}

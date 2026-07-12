@@ -26,21 +26,44 @@ export default function App() {
 
   async function refreshTables() {
     setLoading(true);
-    const [tbls, orders] = await Promise.all([loadTables(), getAllOpenOrders()]);
-    setTables(tbls);
-    setOrdersMap(orders);
-    setLoading(false);
+    try {
+      const [tbls, orders] = await Promise.all([loadTables(), getAllOpenOrders()]);
+      setTables(tbls);
+      setOrdersMap(orders);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function showTables() {
+    setView("tables");
+    void refreshTables();
   }
 
   useEffect(() => {
-    if (view === "tables") refreshTables();
-  }, [view]);
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        const [tbls, orders] = await Promise.all([loadTables(), getAllOpenOrders()]);
+        if (cancelled) return;
+        setTables(tbls);
+        setOrdersMap(orders);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Vistas condicionales (después de hooks)
   if (view === "products") {
     return (
       <div className="page">
-        <ProductAdmin onBack={() => setView("tables")} />
+        <ProductAdmin onBack={showTables} />
       </div>
     );
   }
@@ -48,7 +71,7 @@ export default function App() {
   if (view === "clients") {
     return (
       <div className="page">
-        <ClientAdmin onBack={() => setView("tables")} />
+        <ClientAdmin onBack={showTables} />
       </div>
     );
   }
@@ -56,7 +79,7 @@ export default function App() {
   if (view === "report") {
     return (
       <div className="page">
-        <DailyReport onBack={() => setView("tables")} />
+        <DailyReport onBack={showTables} />
       </div>
     );
   }
@@ -64,7 +87,7 @@ export default function App() {
   if (view === "invoices") {
     return (
       <div className="page">
-        <InvoiceAdmin onBack={() => setView("tables")} />
+        <InvoiceAdmin onBack={showTables} />
       </div>
     );
   }
@@ -74,11 +97,8 @@ export default function App() {
       <div className="page">
         <TableOrder
           table={selectedTable}
-          onBack={() => setView("tables")}
-          onPaid={() => {
-            refreshTables();
-            setView("tables");
-          }}
+          onBack={showTables}
+          onPaid={showTables}
         />
       </div>
     );

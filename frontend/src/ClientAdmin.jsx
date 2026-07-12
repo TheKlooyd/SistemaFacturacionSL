@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import {
-  loadClientsFromServer,
+  loadClients,
   addClient,
   updateClient,
   deleteClient,
@@ -20,7 +20,7 @@ export default function ClientAdmin({ onBack }) {
 
   useEffect(() => {
     (async () => {
-      const loaded = await loadClientsFromServer();
+      const loaded = await loadClients();
       setClients(loaded);
     })();
   }, []);
