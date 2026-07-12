@@ -193,9 +193,13 @@ export function ticketCierre({ dateISO, summary, breakdown, topProducts }) {
   const dt = new Date().toLocaleString("es-CO");
 
   const breakdownTotal = (breakdown || []).reduce((s, b) => s + Number(b.total || 0), 0);
+  const total = Number(summary?.total ?? breakdownTotal);
 
   const byMethod = (breakdown || [])
-    .map((b) => line(`${b.method} (${b.tickets})`, `$${formatCOP(b.total)}`))
+    .map((b) => {
+      const uses = Number(b.uses ?? b.tickets ?? 0);
+      return line(`${b.method} (${uses} uso${uses !== 1 ? "s" : ""})`, `$${formatCOP(b.total)}`);
+    })
     .join("");
 
   const top = (topProducts || [])
@@ -212,7 +216,7 @@ export function ticketCierre({ dateISO, summary, breakdown, topProducts }) {
     ${line("Tickets", String(summary?.tickets || 0))}
     ${line("Subtotal", `$${formatCOP(summary?.subtotal || 0)}`)}
     ${line("Propinas", `$${formatCOP(summary?.tip || 0)}`)}
-    ${line("TOTAL", `<span class="bold">$${formatCOP(breakdownTotal)}</span>`)}
+    ${line("TOTAL", `<span class="bold">$${formatCOP(total)}</span>`)}
 
     <div class="hr"></div>
     <div class="bold">Por método</div>

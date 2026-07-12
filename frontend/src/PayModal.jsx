@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 
 function formatCOP(value) {
   return new Intl.NumberFormat("es-CO").format(value || 0);
@@ -63,6 +63,8 @@ export default function PayModal({
   const [showAddMenu, setShowAddMenu] = useState(false);
   const [discountType, setDiscountType] = useState("PERCENT"); // "PERCENT" | "AMOUNT"
   const [discountStr, setDiscountStr] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false);
 
   const tipAmount = parseNum(tipStr);
 
@@ -145,6 +147,29 @@ export default function PayModal({
   const change = Math.max(0, totalPaid - totalWithTip);
   const remaining = totalWithTip - totalPaid;
   const canConfirm = totalPaid >= totalWithTip && splits.length > 0;
+
+  async function handleConfirm() {
+    if (!canConfirm || submittingRef.current) return;
+
+    submittingRef.current = true;
+    setSubmitting(true);
+
+    try {
+      await onConfirm({
+        paymentSplits: splits.map((s) => ({ ...s, amount: parseNum(s.amountStr) })),
+        method: splits.map((s) => s.method).join(" + "),
+        tipAmount,
+        discountAmount,
+        paidAmount: totalPaid,
+        totalWithTip,
+      });
+    } catch (error) {
+      console.error("confirm payment error:", error);
+      alert("No se pudo registrar el pago. Intenta de nuevo.");
+      submittingRef.current = false;
+      setSubmitting(false);
+    }
+  }
 
   return (
     <div className="modalOverlay">
@@ -348,25 +373,16 @@ export default function PayModal({
         </div>
 
         <div className="modalActions">
-          <button className="btn" onClick={onCancel}>
+          <button className="btn" onClick={onCancel} disabled={submitting}>
             Cancelar
           </button>
 
           <button
             className="btnPrimary"
-            disabled={!canConfirm}
-            onClick={() => {
-              onConfirm({
-                paymentSplits: splits.map((s) => ({ ...s, amount: parseNum(s.amountStr) })),
-                method: splits.map((s) => s.method).join(" + "),
-                tipAmount,
-                discountAmount,
-                paidAmount: totalPaid,
-                totalWithTip,
-              });
-            }}
+            disabled={!canConfirm || submitting}
+            onClick={handleConfirm}
           >
-            Confirmar pago
+            {submitting ? "Guardando..." : "Confirmar pago"}
           </button>
         </div>
       </div>

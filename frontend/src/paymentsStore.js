@@ -29,7 +29,7 @@ export async function loadPayments() {
 }
 
 export async function addPayment(payment) {
-  const { error } = await supabase.from("pagos").insert({
+  const payload = {
     id: payment.id,
     table_id: payment.tableId,
     table_name: payment.tableName,
@@ -44,8 +44,20 @@ export async function addPayment(payment) {
     paid_amount: payment.paidAmount,
     items: payment.items,
     created_at: payment.createdAt || new Date().toISOString(),
-  });
-  if (error) console.error("addPayment error:", error);
+  };
+
+  const { data, error } = await supabase
+    .from("pagos")
+    .insert(payload)
+    .select("id")
+    .single();
+
+  if (error) {
+    console.error("addPayment error:", error);
+    throw error;
+  }
+
+  return data;
 }
 
 export async function updatePayment(id, changes) {

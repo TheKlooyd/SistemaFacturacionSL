@@ -289,9 +289,18 @@ export default function TableOrder({ table, onBack, onPaid }) {
   }
 
   async function confirmPay({ paymentSplits, method, tipAmount, discountAmount, paidAmount, totalWithTip }) {
+    const paymentCreatedAt = new Date().toISOString();
+    const paymentItems = order.items.map((it) => ({
+      product_id: it.product_id,
+      name: it.name,
+      unit_price: it.unit_price,
+      qty: it.qty,
+      line_total: it.unit_price * it.qty,
+    }));
+
     await addPayment({
       id: crypto.randomUUID(),
-      createdAt: new Date().toISOString(),
+      createdAt: paymentCreatedAt,
       tableId: table.id,
       tableName: table.name,
       isDelivery,
@@ -303,45 +312,56 @@ export default function TableOrder({ table, onBack, onPaid }) {
       discountAmount: discountAmount || 0,
       totalWithTip,
       paidAmount,
-      items: order.items.map((it) => ({
-        product_id: it.product_id,
-        name: it.name,
-        unit_price: it.unit_price,
-        qty: it.qty,
-        line_total: it.unit_price * it.qty,
-      })),
+      items: paymentItems,
     });
 
-    openPrintWindow(
-      ticketFactura({
-        businessName: "SABOR LATINO",
-        tableName: isDelivery ? "DELIVERY" : table.name,
-        createdAt: new Date().toISOString(),
-        isDelivery,
-        deliveryClient: isDelivery ? selectedClient : null,
-        items: order.items.map((it) => ({
-          name: it.name,
-          unit_price: it.unit_price,
-          qty: it.qty,
-          note: it.note || "",
-        })),
-        subtotal: total,
-        tipAmount,
-        discountAmount: discountAmount || 0,
-        totalWithTip,
-        method,
-        paymentSplits,
-        paidAmount,
-      }),
-      "factura"
-    );
-
     setPayOpen(false);
-    await clearOrder(String(table.id));
+
+    try {
+      openPrintWindow(
+        ticketFactura({
+          businessName: "SABOR LATINO",
+          tableName: isDelivery ? "DELIVERY" : table.name,
+          createdAt: paymentCreatedAt,
+          isDelivery,
+          deliveryClient: isDelivery ? selectedClient : null,
+          items: order.items.map((it) => ({
+            name: it.name,
+            unit_price: it.unit_price,
+            qty: it.qty,
+            note: it.note || "",
+          })),
+          subtotal: total,
+          tipAmount,
+          discountAmount: discountAmount || 0,
+          totalWithTip,
+          method,
+          paymentSplits,
+          paidAmount,
+        }),
+        "factura"
+      );
+    } catch (error) {
+      console.error("print invoice error:", error);
+      alert("El pago se registró, pero no se pudo imprimir la factura.");
+    }
+
+    try {
+      await clearOrder(String(table.id));
+    } catch (error) {
+      console.error("clear paid order error:", error);
+      alert("El pago se registró, pero no se pudo limpiar la cuenta. Recarga para verificar el estado de la mesa.");
+    }
+
     setOrder({ items: [], status: "OPEN" });
     setIsDelivery(false);
     setSelectedClient(null);
-    await onPaid?.();
+
+    try {
+      await onPaid?.();
+    } catch (error) {
+      console.error("onPaid callback error:", error);
+    }
   }
 
   return (
