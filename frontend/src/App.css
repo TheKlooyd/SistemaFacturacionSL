@@ -216,6 +216,11 @@ body{
   box-shadow: 0 0 0 4px var(--action-glow), 0 14px 30px rgba(0,0,0,.10);
 }
 
+.homeActionButton[aria-pressed="true"]{
+  filter: saturate(1.08);
+  box-shadow: 0 0 0 2px var(--action-border), 0 16px 32px rgba(0,0,0,.12);
+}
+
 .homeActionGlyph{
   width: 42px;
   height: 42px;
@@ -311,6 +316,19 @@ body{
   display:grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 14px;
+  align-content: start;
+}
+
+.tablesViewport{
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 6px;
+  margin-right: -6px;
+}
+
+.tableCardShell{
+  position: relative;
 }
 
 .tableCard{
@@ -327,6 +345,11 @@ body{
   transition: transform .08s ease, background .18s ease, border-color .18s ease;
   min-height: 120px;
   gap: 6px;
+  width: 100%;
+}
+
+.tableCard:disabled{
+  cursor: progress;
 }
 
 .tableIcon{
@@ -349,6 +372,86 @@ body{
   background: linear-gradient(160deg, #cd0508 0%, #ff4347 50%, #ffb3b4 100%);
   border: 3px solid #8b0002;
   box-shadow: 0 0 12px rgba(205,5,8,.55);
+}
+
+.tableCardGhost{
+  border-style: dashed;
+  border-color: rgba(26,8,0,.24);
+  background: linear-gradient(180deg, rgba(255,255,255,.46), rgba(176,83,40,.10));
+}
+
+.tableCardGhost:hover:not(:disabled){
+  background: linear-gradient(180deg, rgba(255,255,255,.78), rgba(254,174,13,.16));
+  border-color: rgba(176,83,40,.38);
+}
+
+.tableCardGhost .tableIcon{
+  opacity: .28;
+  filter: saturate(.4);
+}
+
+.tableCardGhost .tableName{
+  color: rgba(26,8,0,.84);
+}
+
+.tableCardGhost .tableStatus{
+  color: rgba(26,8,0,.72);
+  font-weight: 800;
+}
+
+.tableIconWrap{
+  position: relative;
+  display: grid;
+  place-items: center;
+}
+
+.tableGhostPlus{
+  position: absolute;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  border: 1px solid rgba(26,8,0,.18);
+  background: rgba(255,255,255,.92);
+  color: #1a0800;
+  font-size: 30px;
+  font-weight: 900;
+  line-height: 1;
+  box-shadow: 0 8px 18px rgba(0,0,0,.12);
+}
+
+.tableDeleteButton{
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 2;
+  width: 34px;
+  height: 34px;
+  border: 1px solid rgba(139,0,2,.35);
+  border-radius: 999px;
+  background: rgba(255,255,255,.92);
+  color: #8b0002;
+  font-size: 24px;
+  line-height: 1;
+  font-weight: 900;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 8px 18px rgba(0,0,0,.16);
+  transition: transform .08s ease, background .18s ease, border-color .18s ease, color .18s ease;
+}
+
+.tableDeleteButton:hover{
+  transform: scale(1.05);
+  background: #fff;
+  border-color: rgba(139,0,2,.55);
+}
+
+.tableDeleteButton.blocked{
+  color: rgba(26,8,0,.58);
+  border-color: rgba(26,8,0,.18);
+  background: rgba(255,255,255,.88);
 }
 
 .tableName{

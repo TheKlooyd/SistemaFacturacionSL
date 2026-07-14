@@ -7,6 +7,13 @@ import PayModal from "./PayModal";
 import { addPayment } from "./paymentsStore";
 import { openPrintWindow } from "./print";
 import { ticketComanda, ticketFactura, ticketCuenta } from "./printTemplates";
+import {
+  ActionIconButton,
+  BackIcon,
+  DeliveryIcon,
+  PayIcon,
+  PrintIcon,
+} from "./ActionButtons";
 
 function formatCOP(value) {
   return new Intl.NumberFormat("es-CO").format(value || 0);
@@ -288,6 +295,19 @@ export default function TableOrder({ table, onBack, onPaid }) {
     setPayOpen(true);
   }
 
+  function printKitchenTicket() {
+    if (!order.items?.length) return alert("No hay productos para imprimir.");
+
+    openPrintWindow(
+      ticketComanda({
+        tableName: table.name,
+        createdAt: new Date().toISOString(),
+        items: order.items.map((item) => ({ qty: item.qty, name: item.name, note: item.note || "" })),
+      }),
+      "comanda"
+    );
+  }
+
   async function confirmPay({ paymentSplits, method, tipAmount, discountAmount, paidAmount, totalWithTip }) {
     const paymentCreatedAt = new Date().toISOString();
     const paymentItems = order.items.map((it) => ({
@@ -364,41 +384,82 @@ export default function TableOrder({ table, onBack, onPaid }) {
     }
   }
 
+  const tableActions = [
+    {
+      key: "print",
+      label: "Imprimir comanda",
+      title: "Imprimir comanda",
+      onClick: printKitchenTicket,
+      tone: {
+        tint: "rgba(176,83,40,.16)",
+        border: "rgba(176,83,40,.34)",
+        glow: "rgba(176,83,40,.16)",
+      },
+      icon: <PrintIcon />,
+    },
+    {
+      key: "delivery",
+      label: isDelivery ? "Delivery ON" : "Delivery",
+      title: isDelivery ? "Desactivar modo delivery" : "Activar modo delivery",
+      onClick: toggleDelivery,
+      tone: isDelivery
+        ? {
+            tint: "rgba(205,5,8,.14)",
+            border: "rgba(205,5,8,.30)",
+            glow: "rgba(205,5,8,.16)",
+          }
+        : {
+            tint: "rgba(26,8,0,.08)",
+            border: "rgba(26,8,0,.16)",
+            glow: "rgba(26,8,0,.12)",
+          },
+      pressed: isDelivery,
+      icon: <DeliveryIcon />,
+    },
+    {
+      key: "back",
+      label: "Volver",
+      title: "Volver a mesas",
+      onClick: onBack,
+      tone: {
+        tint: "rgba(26,8,0,.08)",
+        border: "rgba(26,8,0,.16)",
+        glow: "rgba(26,8,0,.12)",
+      },
+      icon: <BackIcon />,
+    },
+    {
+      key: "pay",
+      label: "Pagar",
+      title: "Registrar pago",
+      onClick: openPay,
+      tone: {
+        tint: "rgba(254,174,13,.20)",
+        border: "rgba(254,174,13,.42)",
+        glow: "rgba(254,174,13,.20)",
+      },
+      icon: <PayIcon />,
+    },
+  ];
+
   return (
     <div className="page">
       <div className="topbar">
         <h1>{table.name} — Cuenta</h1>
 
-        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-          <button
-            className="btn"
-            onClick={() => {
-              if (!order.items?.length) return alert("No hay productos para imprimir.");
-
-              openPrintWindow(
-                ticketComanda({
-                  tableName: table.name,
-                  createdAt: new Date().toISOString(),
-                  items: order.items.map((i) => ({ qty: i.qty, name: i.name, note: i.note || "" })),
-                }),
-                "comanda"
-              );
-            }}
-          >
-            Imprimir comanda
-          </button>
-
-          <button
-            className={isDelivery ? "btnPrimary" : "btn"}
-            onClick={toggleDelivery}
-            title={isDelivery ? "Desactivar modo delivery" : "Activar modo delivery"}
-          >
-            🛵 {isDelivery ? "Delivery ON" : "Delivery"}
-          </button>
-
-          <button className="btn" onClick={onBack}>Volver</button>
-
-          <button className="btnPrimary" onClick={openPay}>Pagar</button>
+        <div className="topbarActions homeActionButtons">
+          {tableActions.map((action) => (
+            <ActionIconButton
+              key={action.key}
+              label={action.label}
+              title={action.title}
+              onClick={action.onClick}
+              tone={action.tone}
+              aria-pressed={action.pressed}
+            >
+              {action.icon}
+            </ActionIconButton>
+          ))}
         </div>
       </div>
 
