@@ -19,6 +19,22 @@ function formatCOP(value) {
   return new Intl.NumberFormat("es-CO").format(value || 0);
 }
 
+function parseNum(str) {
+  const digits = String(str ?? "").replace(/[^0-9]/g, "");
+  return digits === "" ? 0 : parseInt(digits, 10);
+}
+
+function handleMoneyInput(raw) {
+  const digits = String(raw ?? "").replace(/[^0-9]/g, "");
+  if (digits === "") return "";
+  return new Intl.NumberFormat("es-CO").format(parseInt(digits, 10));
+}
+
+function numToStr(num) {
+  if (!num && num !== 0) return "";
+  return new Intl.NumberFormat("es-CO").format(num);
+}
+
 // Display qty as fraction when decimal (0.5 → "½", 1.5 → "1½")
 function fmtQty(qty) {
   if (qty === 0.5) return "½";
@@ -72,6 +88,7 @@ export default function TableOrder({ table, onBack, onPaid }) {
 
   const [payOpen, setPayOpen] = useState(false);
   const [billOpen, setBillOpen] = useState(false);
+  const [billTipStr, setBillTipStr] = useState("");
 
   // Notas por producto
   const [noteModalId, setNoteModalId] = useState(null);
@@ -271,8 +288,9 @@ export default function TableOrder({ table, onBack, onPaid }) {
     return order.items.reduce((acc, it) => acc + it.unit_price * it.qty, 0);
   }, [order.items]);
 
-  const tipSuggested = Math.round(total * 0.1);
-  const totalWithTip = total + tipSuggested;
+  const suggestedBillTip = Math.round(total * 0.1);
+  const billTipAmount = parseNum(billTipStr);
+  const billTotalWithTip = total + billTipAmount;
 
   const filteredProducts = useMemo(() => {
     let list = products.filter((p) => p.category_id === selectedCatId);
@@ -293,6 +311,20 @@ export default function TableOrder({ table, onBack, onPaid }) {
   function openPay() {
     if (order.items.length === 0) return alert("No hay productos en la cuenta.");
     setPayOpen(true);
+  }
+
+  function openBill() {
+    if (order.items.length === 0) return alert("No hay productos en la cuenta.");
+    setBillTipStr(numToStr(suggestedBillTip));
+    setBillOpen(true);
+  }
+
+  function setSuggestedBillTip() {
+    setBillTipStr(numToStr(suggestedBillTip));
+  }
+
+  function clearBillTip() {
+    setBillTipStr("");
   }
 
   function printKitchenTicket() {
@@ -616,7 +648,7 @@ export default function TableOrder({ table, onBack, onPaid }) {
               <button
                 className="btnPrimary"
                 style={{ fontSize: 13, padding: "6px 14px" }}
-                onClick={() => setBillOpen(true)}
+                onClick={openBill}
               >
                 Sacar cuenta
               </button>
@@ -803,16 +835,60 @@ export default function TableOrder({ table, onBack, onPaid }) {
               <span>Subtotal</span>
               <span>${formatCOP(total)}</span>
             </div>
-            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6, fontSize: 15, color: "#666" }}>
-              <span>Propina sugerida (10%)</span>
-              <span>${formatCOP(tipSuggested)}</span>
+            <div style={{ marginBottom: 6 }}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  gap: 12,
+                  fontSize: 15,
+                  color: "#666",
+                  flexWrap: "wrap",
+                }}
+              >
+                <span>Propina</span>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                  <button
+                    className="btn"
+                    style={{ padding: "4px 10px", fontSize: 12 }}
+                    onClick={setSuggestedBillTip}
+                    type="button"
+                  >
+                    Sugerida 10%
+                  </button>
+                  <button
+                    className="btn"
+                    style={{ padding: "4px 10px", fontSize: 12 }}
+                    onClick={clearBillTip}
+                    type="button"
+                  >
+                    Sin propina
+                  </button>
+                  <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                    <span>$</span>
+                    <input
+                      className="input"
+                      type="text"
+                      inputMode="numeric"
+                      value={billTipStr}
+                      onChange={(e) => setBillTipStr(handleMoneyInput(e.target.value))}
+                      placeholder={numToStr(suggestedBillTip)}
+                      style={{ width: 110, textAlign: "right" }}
+                    />
+                  </div>
+                </div>
+              </div>
+              <div style={{ fontSize: 12, color: "#888", textAlign: "right", marginTop: 4 }}>
+                Sugerida al 10%: ${formatCOP(suggestedBillTip)}
+              </div>
             </div>
 
             <hr style={{ borderTop: "1px dashed #bbb", margin: "12px 0" }} />
 
             <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 900, fontSize: 20 }}>
               <span>TOTAL</span>
-              <span>${formatCOP(totalWithTip)}</span>
+              <span>${formatCOP(billTotalWithTip)}</span>
             </div>
 
             <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
@@ -831,8 +907,8 @@ export default function TableOrder({ table, onBack, onPaid }) {
                         note: it.note || "",
                       })),
                       subtotal: total,
-                      tipAmount: tipSuggested,
-                      totalWithTip,
+                      tipAmount: billTipAmount,
+                      totalWithTip: billTotalWithTip,
                     }),
                     "cuenta"
                   );

@@ -61,7 +61,7 @@ export function ticketCuenta({ tableName, items, subtotal, tipAmount, discountAm
     <div class="hr"></div>
     ${line("Subtotal", `$${formatCOP(subtotal)}`)}
     ${discountAmount > 0 ? line("Descuento", `<span style="color:#1a7a40">− $${formatCOP(discountAmount)}</span>`) : ""}
-    ${line("Propina sugerida (10%)", `$${formatCOP(tipAmount)}`)}
+    ${tipAmount > 0 ? line("Propina", `$${formatCOP(tipAmount)}`) : ""}
     <div class="hr"></div>
     <div class="row bold" style="font-size:17px;">
       <div class="left">TOTAL</div>
