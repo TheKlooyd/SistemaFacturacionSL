@@ -332,6 +332,7 @@ body{
 }
 
 .tableCard{
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -463,6 +464,25 @@ body{
   font-size: 13px;
   color: rgba(26,8,0,.65);
 }
+.tableTimer{
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  color: rgba(26,8,0,.88);
+  background: rgba(255,255,255,.85);
+  border: 1px solid rgba(26,8,0,.12);
+  border-radius: 999px;
+  padding: 4px 9px;
+  box-shadow: 0 8px 18px rgba(0,0,0,.12);
+}
 .tableCard.busy .tableName,
 .tableCard.busy .tableStatus{
   color: #fff;
@@ -472,6 +492,11 @@ body{
   font-weight: 800;
   font-size: 14px;
   letter-spacing: .5px;
+}
+.tableCard.busy .tableTimer{
+  color: #8b0002;
+  background: rgba(255,255,255,.92);
+  border-color: rgba(139,0,2,.25);
 }
 
 /* =========================

@@ -26,6 +26,7 @@ export async function getAllOpenOrders() {
         status: row.status,
         isDelivery: row.is_delivery || false,
         deliveryClient: row.delivery_client || null,
+        openedAt: row.opened_at || null,
       };
     }
   }
@@ -63,6 +64,7 @@ export async function getOpenOrder(tableId) {
     status: best.status,
     isDelivery: best.is_delivery || false,
     deliveryClient: best.delivery_client || null,
+    openedAt: best.opened_at || null,
   };
 }
 
@@ -80,6 +82,7 @@ export async function setOpenOrder(tableId, order) {
     status: order.status || "OPEN",
     is_delivery: order.isDelivery || false,
     delivery_client: order.deliveryClient || null,
+    opened_at: order.openedAt || new Date().toISOString(),
   };
 
   if (!fetchError && existing && existing.length > 0) {

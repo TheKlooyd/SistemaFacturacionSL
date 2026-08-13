@@ -10,6 +10,7 @@ import { ticketComanda, ticketFactura, ticketCuenta } from "./printTemplates";
 import {
   ActionIconButton,
   BackIcon,
+  ClockIcon,
   DeliveryIcon,
   PayIcon,
   PrintIcon,
@@ -33,6 +34,18 @@ function handleMoneyInput(raw) {
 function numToStr(num) {
   if (!num && num !== 0) return "";
   return new Intl.NumberFormat("es-CO").format(num);
+}
+
+function formatElapsedClock(ms) {
+  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+
+  if (hours > 0) {
+    return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+  }
+
+  return `00:${String(minutes).padStart(2, "0")}`;
 }
 
 // Display qty as fraction when decimal (0.5 → "½", 1.5 → "1½")
@@ -93,6 +106,12 @@ export default function TableOrder({ table, onBack, onPaid }) {
   // Notas por producto
   const [noteModalId, setNoteModalId] = useState(null);
   const [noteText, setNoteText] = useState("");
+  const [now, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(intervalId);
+  }, []);
 
   function openNoteModal(it) {
     setNoteModalId(it.product_id);
@@ -116,8 +135,19 @@ export default function TableOrder({ table, onBack, onPaid }) {
   const [selectedClient, setSelectedClient] = useState(null);
 
   function persist(next) {
-    setOrder(next);
-    setOpenOrder(String(table.id), next).catch(console.error);
+    const normalized = {
+      ...next,
+      openedAt: next.openedAt || order.openedAt || new Date().toISOString(),
+    };
+
+    setOrder(normalized);
+
+    if ((normalized.items || []).length === 0) {
+      clearOrder(String(table.id)).catch(console.error);
+      return;
+    }
+
+    setOpenOrder(String(table.id), normalized).catch(console.error);
   }
 
   function persistDelivery(delivery, client) {
@@ -287,6 +317,10 @@ export default function TableOrder({ table, onBack, onPaid }) {
   const total = useMemo(() => {
     return order.items.reduce((acc, it) => acc + it.unit_price * it.qty, 0);
   }, [order.items]);
+
+  const waitingTimeText = order.openedAt
+    ? formatElapsedClock(Math.max(0, now - new Date(order.openedAt).getTime()))
+    : "00:00";
 
   const suggestedBillTip = Math.round(total * 0.1);
   const billTipAmount = parseNum(billTipStr);
@@ -477,7 +511,29 @@ export default function TableOrder({ table, onBack, onPaid }) {
   return (
     <div className="page">
       <div className="topbar">
-        <h1>{table.name} — Cuenta</h1>
+        <h1 style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+          <span>{table.name} — Cuenta</span>
+          {order.items.length > 0 && (
+            <span
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                fontSize: 15,
+                fontWeight: 900,
+                letterSpacing: "0.08em",
+                background: "rgba(255,255,255,.7)",
+                border: "1px solid rgba(26,8,0,.12)",
+                borderRadius: 999,
+                padding: "4px 10px",
+                color: "#1a0800",
+              }}
+            >
+              <ClockIcon style={{ width: 16, height: 16 }} />
+              {waitingTimeText}
+            </span>
+          )}
+        </h1>
 
         <div className="topbarActions homeActionButtons">
           {tableActions.map((action) => (
