@@ -647,127 +647,128 @@ export default function TableOrder({ table, onBack, onPaid }) {
           </div>
         </section>
 
-        {/* CLIENTE DELIVERY */}
-        {isDelivery && (
-          <section className="card" style={{ gridColumn: "1 / -1" }}>
-            <h2 style={{ marginTop: 0 }}>🛵 Cliente Delivery</h2>
+        {/* CUENTA (+ cliente delivery cuando aplica) */}
+        <div className="cuentaCol">
+          {isDelivery && (
+            <section className="card deliveryCard">
+              <h2 style={{ marginTop: 0 }}>🛵 Cliente Delivery</h2>
 
-            {selectedClient ? (
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 10 }}>
+              {selectedClient ? (
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 10 }}>
+                  <div>
+                    <div style={{ fontWeight: 900, fontSize: 16 }}>{selectedClient.name}</div>
+                    <div style={{ opacity: 0.8, fontSize: 13 }}>📞 {selectedClient.phone}</div>
+                    <div style={{ opacity: 0.8, fontSize: 13 }}>📍 {selectedClient.address}</div>
+                  </div>
+                  <button className="btn" onClick={clearClient}>Cambiar cliente</button>
+                </div>
+              ) : (
                 <div>
-                  <div style={{ fontWeight: 900, fontSize: 16 }}>{selectedClient.name}</div>
-                  <div style={{ opacity: 0.8, fontSize: 13 }}>📞 {selectedClient.phone}</div>
-                  <div style={{ opacity: 0.8, fontSize: 13 }}>📍 {selectedClient.address}</div>
-                </div>
-                <button className="btn" onClick={clearClient}>Cambiar cliente</button>
-              </div>
-            ) : (
-              <div>
-                <input
-                  className="input"
-                  placeholder="Buscar cliente por nombre o teléfono..."
-                  value={clientQuery}
-                  onChange={(e) => setClientQuery(e.target.value)}
-                  style={{ marginBottom: 8 }}
-                />
-                {filteredClients.length > 0 && (
-                  <div className="list" style={{ maxHeight: 200, overflowY: "auto" }}>
-                    {filteredClients.map((c) => (
-                      <div
-                        key={c.id}
-                        className="listItem"
-                        style={{ cursor: "pointer" }}
-                        onClick={() => selectClient(c)}
-                      >
-                        <div>
-                          <div style={{ fontWeight: 900 }}>{c.name}</div>
-                          <div style={{ opacity: 0.7, fontSize: 13 }}>📞 {c.phone} — 📍 {c.address}</div>
+                  <input
+                    className="input"
+                    placeholder="Buscar cliente por nombre o teléfono..."
+                    value={clientQuery}
+                    onChange={(e) => setClientQuery(e.target.value)}
+                    style={{ marginBottom: 8 }}
+                  />
+                  {filteredClients.length > 0 && (
+                    <div className="list" style={{ maxHeight: 160, overflowY: "auto" }}>
+                      {filteredClients.map((c) => (
+                        <div
+                          key={c.id}
+                          className="listItem"
+                          style={{ cursor: "pointer" }}
+                          onClick={() => selectClient(c)}
+                        >
+                          <div>
+                            <div style={{ fontWeight: 900 }}>{c.name}</div>
+                            <div style={{ opacity: 0.7, fontSize: 13 }}>📞 {c.phone} — 📍 {c.address}</div>
+                          </div>
+                          <button className="btnPrimary" onClick={(e) => { e.stopPropagation(); selectClient(c); }}>Seleccionar</button>
                         </div>
-                        <button className="btnPrimary" onClick={(e) => { e.stopPropagation(); selectClient(c); }}>Seleccionar</button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {clientQuery.trim() && filteredClients.length === 0 && (
-                  <div style={{ opacity: 0.7, fontSize: 13 }}>No se encontraron clientes. Regístralos en "Admin clientes".</div>
-                )}
-              </div>
-            )}
-          </section>
-        )}
-
-        {/* CUENTA */}
-        <section className="card" style={{ display: "flex", flexDirection: "column", overflow: "hidden" }}>
-          <h2 style={{ marginTop: 0, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            Cuenta
-            {order.items.length > 0 && (
-              <button
-                className="btnPrimary"
-                style={{ fontSize: 13, padding: "6px 14px" }}
-                onClick={openBill}
-              >
-                Sacar cuenta
-              </button>
-            )}
-          </h2>
-
-          {order.items.length === 0 ? (
-            <p style={{ opacity: 0.8 }}>No hay productos aún.</p>
-          ) : (
-            <div className="orderLines">
-              {order.items.map((it) => (
-                <div key={it.product_id} className="orderLine" style={{ flexDirection: "column", alignItems: "stretch", gap: 4 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <div>
-                      <div style={{ fontWeight: 900 }}>{it.name}</div>
-                      <div style={{ opacity: 0.8 }}>${formatCOP(it.unit_price)} c/u</div>
+                      ))}
                     </div>
-
-                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <button className="btn" onClick={() => changeQty(it.product_id, -1)}>–</button>
-
-                      <div style={{ minWidth: 24, textAlign: "center", fontWeight: 900 }}>
-                        {fmtQty(it.qty)}
-                      </div>
-
-                      <button className="btn" onClick={() => changeQty(it.product_id, +1)}>+</button>
-                    </div>
-                  </div>
-
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <button
-                      className="btn"
-                      style={{ fontSize: 12, padding: "2px 10px" }}
-                      onClick={() => openNoteModal(it)}
-                    >
-                      {it.note ? "✏️ Editar nota" : "📝 Añadir nota"}
-                    </button>
-                    {it.note && (
-                      <span style={{ fontSize: 12, opacity: 0.75, fontStyle: "italic" }}>"{it.note}"</span>
-                    )}
-                  </div>
+                  )}
+                  {clientQuery.trim() && filteredClients.length === 0 && (
+                    <div style={{ opacity: 0.7, fontSize: 13 }}>No se encontraron clientes. Regístralos en "Admin clientes".</div>
+                  )}
                 </div>
-              ))}
-            </div>
+              )}
+            </section>
           )}
 
-          <div
-            style={{
-              marginTop: 16,
-              fontWeight: 900,
-              fontSize: 20,
-              display: "flex",
-              justifyContent: "space-between",
-            }}
-          >
-            <span>Total</span>
-            <span>${formatCOP(total)}</span>
-          </div>
+          <section className="card cuentaCard" style={{ display: "flex", flexDirection: "column", overflow: "hidden" }}>
+            <h2 style={{ marginTop: 0, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              Cuenta
+              {order.items.length > 0 && (
+                <button
+                  className="btnPrimary"
+                  style={{ fontSize: 13, padding: "6px 14px" }}
+                  onClick={openBill}
+                >
+                  Sacar cuenta
+                </button>
+              )}
+            </h2>
 
-          <div style={{ marginTop: 8, opacity: 0.7 }}>
-            Nota: Para eliminar el último item pide clave 1207.
-          </div>
-        </section>
+            {order.items.length === 0 ? (
+              <p style={{ opacity: 0.8 }}>No hay productos aún.</p>
+            ) : (
+              <div className="orderLines">
+                {order.items.map((it) => (
+                  <div key={it.product_id} className="orderLine" style={{ flexDirection: "column", alignItems: "stretch", gap: 4 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <div>
+                        <div style={{ fontWeight: 900 }}>{it.name}</div>
+                        <div style={{ opacity: 0.8 }}>${formatCOP(it.unit_price)} c/u</div>
+                      </div>
+
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <button className="btn" onClick={() => changeQty(it.product_id, -1)}>–</button>
+
+                        <div style={{ minWidth: 24, textAlign: "center", fontWeight: 900 }}>
+                          {fmtQty(it.qty)}
+                        </div>
+
+                        <button className="btn" onClick={() => changeQty(it.product_id, +1)}>+</button>
+                      </div>
+                    </div>
+
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <button
+                        className="btn"
+                        style={{ fontSize: 12, padding: "2px 10px" }}
+                        onClick={() => openNoteModal(it)}
+                      >
+                        {it.note ? "✏️ Editar nota" : "📝 Añadir nota"}
+                      </button>
+                      {it.note && (
+                        <span style={{ fontSize: 12, opacity: 0.75, fontStyle: "italic" }}>"{it.note}"</span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div
+              style={{
+                marginTop: 16,
+                fontWeight: 900,
+                fontSize: 20,
+                display: "flex",
+                justifyContent: "space-between",
+              }}
+            >
+              <span>Total</span>
+              <span>${formatCOP(total)}</span>
+            </div>
+
+            <div style={{ marginTop: 8, opacity: 0.7 }}>
+              Nota: Para eliminar el último item pide clave 1207.
+            </div>
+          </section>
+        </div>
       </div>
 
       {/* Modal de nota */}

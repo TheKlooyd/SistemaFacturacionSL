@@ -558,6 +558,26 @@ body{
   min-height: 0;
 }
 
+/* Columna de Cuenta (TableOrder): apila cliente delivery + cuenta sin romper el grid de 3 columnas */
+.cuentaCol{
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 0;
+  min-width: 0;
+}
+
+.cuentaCol .deliveryCard{
+  flex: 0 0 auto;
+  max-height: 46%;
+  overflow-y: auto;
+}
+
+.cuentaCol .cuentaCard{
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
 /* Categorías (TableOrder): scroll SOLO aquí */
 .catList{
   flex: 1 1 auto;
