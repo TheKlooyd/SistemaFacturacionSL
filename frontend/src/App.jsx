@@ -8,6 +8,8 @@ import DailyReport from "./DailyReport";
 import InvoiceAdmin from "./InvoiceAdmin";
 import MobileOrderView from "./MobileOrderView";
 import MobileOrderNotificationStack from "./MobileOrderNotifications";
+import CustomerQrOrderView from "./CustomerQrOrderView";
+import StaffAuthGate from "./StaffAuthGate";
 import {
   ActionIconButton,
   ClientsIcon,
@@ -27,14 +29,13 @@ import {
   MAX_TABLES,
 } from "./tablesStore";
 import { getAllOpenOrders } from "./ordersStore";
+import { supabase } from "./supabaseClient";
 import { subscribeToMobileOrders } from "./mobileOrderChannel";
 import { startNotificationSound, stopNotificationSound } from "./notificationSound";
 import { openPrintWindow } from "./print";
 import { ticketComanda } from "./printTemplates";
 
 const BASE = import.meta.env.BASE_URL;
-
-const SECURITY_KEY = "1207";
 
 function formatElapsedClock(ms) {
   const totalSeconds = Math.max(0, Math.floor(ms / 1000));
@@ -48,7 +49,7 @@ function formatElapsedClock(ms) {
   return `00:${String(minutes).padStart(2, "0")}`;
 }
 
-export default function App() {
+export function StaffPosApp() {
   const [view, setView] = useState("tables");
   const [tables, setTables] = useState([]);
   const [ordersMap, setOrdersMap] = useState({}); // { tableId: orderObj }
@@ -70,6 +71,22 @@ export default function App() {
     });
     return unsubscribe;
   }, []);
+
+  useEffect(() => {
+    const channel = supabase
+      .channel("qr-order-persistence")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "ordenes" }, (payload) => {
+        const order = payload.new;
+        if (order.status !== "OPEN" || order.delivery_client?.source !== "qr") return;
+        const tableId = String(order.table_id);
+        const items = order.items || [];
+        setOrdersMap((current) => ({ ...current, [tableId]: { id: order.id, items, status: order.status, openedAt: order.opened_at } }));
+        const table = tables.find((item) => String(item.id) === tableId);
+        setMobileNotifications((current) => current.some((notification) => notification.orderId === order.id) ? current : [...current, { id: crypto.randomUUID(), orderId: order.id, tableId, tableName: table?.name || `Mesa ${tableId}`, createdAt: order.opened_at, items: items.map((item) => ({ qty: item.qty, name: item.name, note: item.note || "" })) }]);
+      })
+      .subscribe();
+    return () => { void supabase.removeChannel(channel); };
+  }, [tables]);
 
   useEffect(() => {
     if (mobileNotifications.length > 0) {
@@ -119,12 +136,7 @@ export default function App() {
   }
 
   function requireSecurityKey(actionName) {
-    const key = prompt(`Ingresa la clave de seguridad para ${actionName}:`);
-    if (key !== SECURITY_KEY) {
-      alert("Clave incorrecta. Acción cancelada.");
-      return false;
-    }
-    return true;
+    return confirm(`¿Confirmas que deseas ${actionName}?`);
   }
 
   async function handleAddTable() {
@@ -394,7 +406,7 @@ export default function App() {
       ) : (
         <div className="tablesViewport">
           <div className="grid">
-            {tables.map((t) => {
+            {tables.filter((table) => table.isActive !== false).map((t) => {
               const busy = isTableBusy(t.id);
               const isDeleting = deletingTableId === t.id;
               const openOrder = ordersMap[String(t.id)] || null;
@@ -483,4 +495,10 @@ export default function App() {
       />
     </div>
   );
+}
+
+export default function App() {
+  const qrToken = new URLSearchParams(window.location.search).get("qr");
+  if (qrToken) return <CustomerQrOrderView qrToken={qrToken} />;
+  return <StaffAuthGate><StaffPosApp /></StaffAuthGate>;
 }

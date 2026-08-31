@@ -1,12 +1,13 @@
 import { supabase } from "./supabaseClient";
 
 const DEFAULT_TABLE_COUNT = 12;
-export const MAX_TABLES = 30;
+export const MAX_TABLES = 12;
 
 const DEFAULT_TABLES = Array.from({ length: DEFAULT_TABLE_COUNT }, (_, i) => ({
   id: i + 1,
   name: `Mesa ${i + 1}`,
   status: "FREE",
+  isActive: i < 8,
 }));
 
 function normalizeTable(row) {
@@ -14,6 +15,7 @@ function normalizeTable(row) {
     id: Number(row.id),
     name: row.name || `Mesa ${row.id}`,
     status: row.status || "FREE",
+    isActive: row.is_active !== false,
   };
 }
 
@@ -52,7 +54,7 @@ async function fetchTables() {
 
 async function seedDefaultTables() {
   const { error } = await supabase.from("mesas").insert(
-    DEFAULT_TABLES.map(({ id, name, status }) => ({ id, name, status }))
+    DEFAULT_TABLES.map(({ id, name, status, isActive }) => ({ id, name, status, is_active: isActive }))
   );
 
   if (error) {

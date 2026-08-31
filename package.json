@@ -1,0 +1,12 @@
+{
+  "name": "sistema-facturacion-tools",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "generate:qr": "node scripts/generate-qr-codes.mjs",
+    "test:qr": "node --test scripts/qr-order-contract.test.mjs"
+  },
+  "dependencies": {
+    "qrcode": "^1.5.4"
+  }
+}

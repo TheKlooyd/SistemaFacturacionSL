@@ -266,12 +266,7 @@ export default function TableOrder({ table, onBack, onPaid }) {
   }, [isPizzaCategory, products, selectedCatId]);
 
   function requireKey() {
-    const key = prompt("Ingresa la clave de seguridad para eliminar productos:");
-    if (key !== "1207") {
-      alert("Clave incorrecta. Acción cancelada.");
-      return false;
-    }
-    return true;
+    return confirm("¿Eliminar este producto de la cuenta?");
   }
 
   function addProduct(p, increment = 1) {
@@ -764,9 +759,7 @@ export default function TableOrder({ table, onBack, onPaid }) {
               <span>${formatCOP(total)}</span>
             </div>
 
-            <div style={{ marginTop: 8, opacity: 0.7 }}>
-              Nota: Para eliminar el último item pide clave 1207.
-            </div>
+            <div style={{ marginTop: 8, opacity: 0.7 }}>Los cambios de cuenta requieren confirmación.</div>
           </section>
         </div>
       </div>

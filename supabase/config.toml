@@ -1,0 +1,5 @@
+[functions.qr-order]
+verify_jwt = false
+
+[functions.parse-order]
+verify_jwt = false

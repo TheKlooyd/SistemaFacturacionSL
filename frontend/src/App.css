@@ -67,6 +67,35 @@ body{
   min-height: 0;                 /* ✅ permite scroll interno */
 }
 
+.qrCustomerPage, .authPage{
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  overflow-y: auto;
+}
+.qrCustomerPanel, .authPanel{
+  width: min(100%, 620px);
+  background: rgba(255,255,255,.96);
+  border: 1px solid rgba(26,8,0,.16);
+  border-radius: 8px;
+  box-shadow: 0 16px 42px rgba(26,8,0,.16);
+  padding: 28px;
+}
+.qrCustomerPanel h1, .authPanel h1{ margin: 10px 0; font-size: 28px; }
+.qrLogo{ display: block; width: min(190px, 70%); height: auto; margin: 0 auto 18px; }
+.qrTable{ margin: 0; color: var(--red); font-weight: 900; text-transform: uppercase; }
+.qrTextarea{ width: 100%; min-height: 150px; resize: vertical; }
+.qrPreview{ margin-top: 18px; border-top: 1px solid var(--border); padding-top: 14px; }
+.qrPreview h2{ font-size: 18px; margin: 0 0 10px; }
+.qrLine, .qrTotal{ display: flex; justify-content: space-between; gap: 16px; padding: 7px 0; }
+.qrTotal{ margin-top: 8px; border-top: 1px solid var(--border); font-size: 19px; }
+.qrAction{ width: 100%; margin-top: 12px; }
+.authPanel{ display: grid; gap: 12px; max-width: 380px; }
+.authPanel h1{ text-align: center; }
+.staffLogout{ position: fixed; right: 14px; bottom: 14px; z-index: 1000; border: 1px solid rgba(26,8,0,.2); background: #fff; border-radius: 6px; padding: 8px 10px; cursor: pointer; }
+@media (max-width: 520px){ .qrCustomerPage, .authPage{ padding: 12px; } .qrCustomerPanel, .authPanel{ padding: 20px; } }
+
 /* Mejor soporte en navegadores modernos */
 @supports (height: 100dvh){
   .page{ height: 100dvh; }

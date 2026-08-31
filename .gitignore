@@ -3,4 +3,7 @@ dist/
 dist-ssr/
 *.local
 *.log
+qr-output/
+*.tokens.local
+*.secrets.local
 .DS_Store
