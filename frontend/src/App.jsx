@@ -6,11 +6,14 @@ import ClientAdmin from "./ClientAdmin";
 import TableOrder from "./TableOrder";
 import DailyReport from "./DailyReport";
 import InvoiceAdmin from "./InvoiceAdmin";
+import MobileOrderView from "./MobileOrderView";
+import MobileOrderNotificationStack from "./MobileOrderNotifications";
 import {
   ActionIconButton,
   ClientsIcon,
   ClockIcon,
   InvoicesIcon,
+  MobileIcon,
   ProductsIcon,
   RefreshIcon,
   ReportIcon,
@@ -24,6 +27,10 @@ import {
   MAX_TABLES,
 } from "./tablesStore";
 import { getAllOpenOrders } from "./ordersStore";
+import { subscribeToMobileOrders } from "./mobileOrderChannel";
+import { startNotificationSound, stopNotificationSound } from "./notificationSound";
+import { openPrintWindow } from "./print";
+import { ticketComanda } from "./printTemplates";
 
 const BASE = import.meta.env.BASE_URL;
 
@@ -50,11 +57,45 @@ export default function App() {
   const [deletingTableId, setDeletingTableId] = useState(null);
   const [selectedTable, setSelectedTable] = useState(null);
   const [now, setNow] = useState(Date.now());
+  const [mobileNotifications, setMobileNotifications] = useState([]);
 
   useEffect(() => {
     const intervalId = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(intervalId);
   }, []);
+
+  useEffect(() => {
+    const unsubscribe = subscribeToMobileOrders((payload) => {
+      setMobileNotifications((current) => [...current, { id: crypto.randomUUID(), ...payload }]);
+    });
+    return unsubscribe;
+  }, []);
+
+  useEffect(() => {
+    if (mobileNotifications.length > 0) {
+      startNotificationSound();
+    } else {
+      stopNotificationSound();
+    }
+  }, [mobileNotifications.length]);
+
+  useEffect(() => stopNotificationSound, []);
+
+  function dismissMobileNotification(id) {
+    setMobileNotifications((current) => current.filter((n) => n.id !== id));
+  }
+
+  function printMobileNotification(notification) {
+    openPrintWindow(
+      ticketComanda({
+        tableName: notification.tableName,
+        createdAt: notification.createdAt,
+        items: notification.items,
+      }),
+      "comanda"
+    );
+    dismissMobileNotification(notification.id);
+  }
 
   function isTableBusy(tableId) {
     const order = ordersMap[String(tableId)];
@@ -171,6 +212,11 @@ export default function App() {
     return (
       <div className="page">
         <ProductAdmin onBack={showTables} />
+        <MobileOrderNotificationStack
+          notifications={mobileNotifications}
+          onDismiss={dismissMobileNotification}
+          onPrint={printMobileNotification}
+        />
       </div>
     );
   }
@@ -179,6 +225,11 @@ export default function App() {
     return (
       <div className="page">
         <ClientAdmin onBack={showTables} />
+        <MobileOrderNotificationStack
+          notifications={mobileNotifications}
+          onDismiss={dismissMobileNotification}
+          onPrint={printMobileNotification}
+        />
       </div>
     );
   }
@@ -187,6 +238,11 @@ export default function App() {
     return (
       <div className="page">
         <DailyReport onBack={showTables} />
+        <MobileOrderNotificationStack
+          notifications={mobileNotifications}
+          onDismiss={dismissMobileNotification}
+          onPrint={printMobileNotification}
+        />
       </div>
     );
   }
@@ -195,6 +251,24 @@ export default function App() {
     return (
       <div className="page">
         <InvoiceAdmin onBack={showTables} />
+        <MobileOrderNotificationStack
+          notifications={mobileNotifications}
+          onDismiss={dismissMobileNotification}
+          onPrint={printMobileNotification}
+        />
+      </div>
+    );
+  }
+
+  if (view === "mobile") {
+    return (
+      <div className="page">
+        <MobileOrderView onBack={showTables} />
+        <MobileOrderNotificationStack
+          notifications={mobileNotifications}
+          onDismiss={dismissMobileNotification}
+          onPrint={printMobileNotification}
+        />
       </div>
     );
   }
@@ -206,6 +280,11 @@ export default function App() {
           table={selectedTable}
           onBack={showTables}
           onPaid={showTables}
+        />
+        <MobileOrderNotificationStack
+          notifications={mobileNotifications}
+          onDismiss={dismissMobileNotification}
+          onPrint={printMobileNotification}
         />
       </div>
     );
@@ -260,6 +339,18 @@ export default function App() {
         glow: "rgba(205,5,8,.16)",
       },
       icon: <InvoicesIcon />,
+    },
+    {
+      key: "mobile",
+      label: "Móvil",
+      title: "Tomar pedido desde el móvil",
+      onClick: () => setView("mobile"),
+      tone: {
+        tint: "rgba(26,8,0,.10)",
+        border: "rgba(26,8,0,.22)",
+        glow: "rgba(26,8,0,.14)",
+      },
+      icon: <MobileIcon />,
     },
     {
       key: "report",
@@ -384,6 +475,12 @@ export default function App() {
       <footer className="footer">
         Tip: click en una mesa para abrir la cuenta, usa la tarjeta + para agregar o la X para eliminar mesas vacías.
       </footer>
+
+      <MobileOrderNotificationStack
+        notifications={mobileNotifications}
+        onDismiss={dismissMobileNotification}
+        onPrint={printMobileNotification}
+      />
     </div>
   );
 }

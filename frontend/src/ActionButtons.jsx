@@ -88,6 +88,16 @@ export function ReportIcon() {
   );
 }
 
+export function MobileIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" focusable="false">
+      <rect x="6.5" y="2.5" width="11" height="19" rx="2.2" />
+      <path d="M10.5 18.5h3" />
+      <path d="M9.5 6.5h5" />
+    </svg>
+  );
+}
+
 export function ClockIcon(props) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" focusable="false" {...props}>

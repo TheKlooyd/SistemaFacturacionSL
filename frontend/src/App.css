@@ -254,7 +254,7 @@ body{
 
   .topbarActions.homeActionButtons{
     display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(6, minmax(0, 1fr));
     width: 100%;
     gap: 8px;
   }
@@ -282,6 +282,163 @@ body{
   .topbarActions.homeActionButtons{
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
+}
+
+/* =========================
+   Mobile order (pedido por texto libre)
+========================= */
+.mobileOrderLayout{
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 640px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.mobileTableGrid{
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+  gap: 8px;
+}
+
+.mobileTableChip{
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 12px 8px;
+  background: rgba(255,255,255,.75);
+  color: var(--text);
+  font-weight: 800;
+  cursor: pointer;
+  transition: transform .08s ease, background .18s ease, border-color .18s ease;
+}
+
+.mobileTableChip:hover{
+  background: rgba(255,255,255,.95);
+  transform: translateY(-1px);
+}
+
+.mobileTableChip.selected{
+  background: linear-gradient(180deg, rgba(176,83,40,.28), rgba(255,255,255,.85));
+  border-color: rgba(176,83,40,.55);
+  box-shadow: 0 0 0 2px rgba(176,83,40,.30);
+}
+
+.mobileOrderTextarea{
+  resize: vertical;
+  min-height: 130px;
+  font-family: inherit;
+  margin-top: 4px;
+}
+
+.mobileSubmitButton{
+  width: 100%;
+  margin-top: 12px;
+  font-size: 15px;
+  padding: 14px;
+}
+
+.mobileFeedback{
+  margin-top: 12px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.mobileFeedback ul{
+  margin: 8px 0 0;
+  padding-left: 18px;
+  font-weight: 600;
+}
+
+.mobileFeedback.success{
+  background: rgba(176,83,40,.16);
+  border: 1px solid rgba(176,83,40,.38);
+  color: #1a0800;
+}
+
+.mobileFeedback.error{
+  background: rgba(205,5,8,.14);
+  border: 1px solid rgba(205,5,8,.35);
+  color: #6b0002;
+}
+
+/* =========================
+   Mobile order incoming notification (floating toast, top-left)
+========================= */
+.mobileNotifyStack{
+  position: fixed;
+  top: 18px;
+  left: 18px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: min(340px, calc(100vw - 36px));
+}
+
+.mobileNotifyToast{
+  background: var(--panel);
+  border: 1px solid rgba(176,83,40,.45);
+  border-radius: 16px;
+  box-shadow: 0 16px 40px rgba(0,0,0,.22);
+  padding: 14px 16px;
+  backdrop-filter: blur(10px);
+  animation: mobileNotifySlideIn .22s ease-out;
+}
+
+@keyframes mobileNotifySlideIn{
+  from{ transform: translate(-16px, -8px); opacity: 0; }
+  to{ transform: translate(0, 0); opacity: 1; }
+}
+
+.mobileNotifyToastHeader{
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 900;
+  font-size: 13px;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--brown);
+  margin-bottom: 6px;
+}
+
+.mobileNotifyToastDot{
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--red);
+  box-shadow: 0 0 0 rgba(205,5,8,.55);
+  animation: mobileNotifyPulse 1.4s infinite;
+}
+
+@keyframes mobileNotifyPulse{
+  0%{ box-shadow: 0 0 0 0 rgba(205,5,8,.55); }
+  70%{ box-shadow: 0 0 0 8px rgba(205,5,8,0); }
+  100%{ box-shadow: 0 0 0 0 rgba(205,5,8,0); }
+}
+
+.mobileNotifyToastBody{
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 12px;
+}
+
+.mobileNotifyToastActions{
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.mobileNotifyToastActions .btn,
+.mobileNotifyToastActions .btnPrimary{
+  padding: 8px 14px;
 }
 
 /* =========================
