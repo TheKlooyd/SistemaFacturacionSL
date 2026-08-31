@@ -52,7 +52,7 @@ export function ticketCuenta({ tableName, items, subtotal, tipAmount, discountAm
   <html><head>${baseStyles()}</head>
   <body>
     <div class="title">SABOR LATINO</div>
-    <div class="sub">Nequi: 317 231 6964</div>
+    <div class="sub">Nequi: 300 550 2424</div>
     <div class="sub">${esc(isDelivery ? "🛵 DELIVERY" : tableName)} — ${esc(dt)}</div>
     <div class="hr"></div>
 
