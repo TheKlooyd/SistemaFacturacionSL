@@ -137,7 +137,7 @@ export default function MobileOrderView({ onBack }) {
   }
 
   return (
-    <div className="page">
+    <div className="page mobileOrderPage">
       <header className="topbar">
         <h1>Pedido desde móvil</h1>
         <div className="topbarActions">
@@ -146,27 +146,29 @@ export default function MobileOrderView({ onBack }) {
       </header>
 
       <div className="mobileOrderLayout">
-        <section className="card">
+        <section className="card mobileTableCard">
           <div className="panelTitle">1. Selecciona la mesa</div>
           {loading ? (
             <p>Cargando mesas...</p>
           ) : (
-            <div className="mobileTableGrid">
-              {tables.map((t) => (
-                <button
-                  key={t.id}
-                  type="button"
-                  className={`mobileTableChip ${String(selectedTableId) === String(t.id) ? "selected" : ""}`}
-                  onClick={() => setSelectedTableId(t.id)}
-                >
-                  {t.name}
-                </button>
-              ))}
+            <div className="mobileTableGridScroll">
+              <div className="mobileTableGrid">
+                {tables.map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    className={`mobileTableChip ${String(selectedTableId) === String(t.id) ? "selected" : ""}`}
+                    onClick={() => setSelectedTableId(t.id)}
+                  >
+                    {t.name}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
         </section>
 
-        <section className="card">
+        <section className="card mobileOrderCard">
           <div className="panelTitle">2. Escribe el pedido</div>
           <textarea
             className="input mobileOrderTextarea"

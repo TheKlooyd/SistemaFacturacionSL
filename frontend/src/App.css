@@ -290,13 +290,37 @@ body{
 .mobileOrderLayout{
   flex: 1 1 auto;
   min-height: 0;
-  overflow-y: auto;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   gap: 16px;
   max-width: 640px;
   width: 100%;
   margin: 0 auto;
+}
+
+.mobileTableCard{
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.mobileTableGridScroll{
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 4px;
+  margin-top: 2px;
+}
+
+.mobileOrderCard{
+  flex: 1.5 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .mobileTableGrid{
@@ -328,8 +352,9 @@ body{
 }
 
 .mobileOrderTextarea{
+  flex: 1 1 auto;
   resize: vertical;
-  min-height: 130px;
+  min-height: 90px;
   font-family: inherit;
   margin-top: 4px;
 }
@@ -339,14 +364,18 @@ body{
   margin-top: 12px;
   font-size: 15px;
   padding: 14px;
+  flex-shrink: 0;
 }
 
 .mobileFeedback{
+  flex-shrink: 0;
   margin-top: 12px;
   padding: 12px 14px;
   border-radius: 14px;
   font-weight: 700;
   font-size: 14px;
+  max-height: 30vh;
+  overflow-y: auto;
 }
 
 .mobileFeedback ul{
@@ -365,6 +394,58 @@ body{
   background: rgba(205,5,8,.14);
   border: 1px solid rgba(205,5,8,.35);
   color: #6b0002;
+}
+
+/* Teléfonos: reduce paddings/gaps para minimizar scroll, solo la grilla de mesas scrollea internamente */
+@media (max-width: 480px){
+  .mobileOrderPage .topbar{
+    margin-bottom: 10px;
+  }
+
+  .mobileOrderPage .topbar h1{
+    font-size: 20px;
+  }
+
+  .mobileOrderLayout{
+    gap: 10px;
+  }
+
+  .mobileOrderLayout .card{
+    padding: 12px;
+  }
+
+  .mobileOrderLayout .panelTitle{
+    margin-bottom: 6px;
+    font-size: 14px;
+  }
+
+  .mobileTableGrid{
+    grid-template-columns: repeat(auto-fill, minmax(68px, 1fr));
+    gap: 6px;
+  }
+
+  .mobileTableChip{
+    padding: 9px 4px;
+    font-size: 13px;
+    border-radius: 12px;
+  }
+
+  .mobileOrderTextarea{
+    min-height: 64px;
+    resize: none;
+  }
+
+  .mobileSubmitButton{
+    margin-top: 8px;
+    padding: 12px;
+    font-size: 14px;
+  }
+
+  .mobileFeedback{
+    margin-top: 8px;
+    padding: 10px 12px;
+    font-size: 13px;
+  }
 }
 
 /* =========================
