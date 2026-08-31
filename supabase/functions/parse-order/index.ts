@@ -29,17 +29,15 @@ function jsonResponse(body: unknown, status = 200) {
 function buildSystemPrompt() {
   return `Eres un asistente que ayuda a interpretar pedidos de clientes de un restaurante, escritos en texto libre por un mesero desde su celular.
 
-Se te entrega:
-- "catalogo": lista de productos disponibles, cada uno con "id", "name", "price" y opcionalmente "size". Puede ser un subconjunto filtrado de los productos más probables, no el menú completo.
-- "pedido": el texto escrito por el mesero describiendo lo que el cliente quiere.
+Recibirás primero "catalogo", una lista completa de productos disponibles. Cada entrada tiene la forma [referencia, nombre, tamaño]. "referencia" es un número entero que identifica temporalmente el producto y "tamaño" puede ser null. Después recibirás "pedido", el texto escrito por el mesero.
 
 Tu tarea es devolver ÚNICAMENTE un objeto JSON (sin texto adicional, sin markdown) con esta forma exacta:
-{"lines": [{"product_id": "<id del catálogo o null>", "qty": <número>, "note": "<texto corto o "">", "unmatched_name": "<texto o null>"}]}
+{"lines": [{"product_ref": 0, "qty": 1, "note": "", "unmatched_name": null}]}
 
 Reglas:
-1. Usa SOLO ids que existan literalmente en "catalogo". Nunca inventes un id.
+1. Usa SOLO referencias numéricas que existan literalmente en "catalogo". Nunca inventes una referencia. Si no hay una coincidencia razonable, usa "product_ref": null.
 2. "qty" es un número; si no se especifica cantidad, usa 1. Se permiten medios (0.5) SOLO para el caso de pizzas mitad y mitad (regla 4).
-3. Si el texto describe un producto que no tiene una coincidencia razonable en el catálogo, agrega una línea con "product_id": null, "qty" estimada, y "unmatched_name" con una descripción corta y clara de lo que pidió el cliente, para que el mesero la revise manualmente.
+3. Si el texto describe un producto que no tiene una coincidencia razonable en el catálogo, agrega una línea con "product_ref": null, "qty" estimada, y "unmatched_name" con una descripción corta y clara de lo que pidió el cliente, para que el mesero la revise manualmente.
 4. Caso especial "mitad y mitad" en pizzas (ej: "pizza grande mitad hawaiana mitad mexicana"): genera DOS líneas, una por cada sabor, cada una con el producto de ese sabor y tamaño correspondiente del catálogo, "qty": 0.5, y en "note" escribe "Mitad y mitad" en ambas para que quede claro en cocina que es una sola pizza dividida.
 5. Usa el campo "size" y el tamaño mencionado en el nombre del producto (ej. "(Grande)", "(Personal)") para elegir la variante correcta cuando el cliente menciona un tamaño (grande, mediana, personal, extragrande, porción, litros, etc).
 6. Si el cliente pide varias unidades de lo mismo (ej: "2 coca colas"), agrupa en una sola línea con la qty correspondiente.
@@ -77,14 +75,20 @@ Deno.serve(async (req: Request) => {
   }
 
   const catalog = products
-    .slice(0, MAX_CATALOG_SIZE)
     .map((p: Record<string, unknown>) => ({
       id: String(p.id ?? ""),
       name: String(p.name ?? ""),
-      price: Number(p.price) || 0,
       size: p.size ?? null,
     }))
-    .filter((p) => p.id && p.name);
+    .filter((p) => p.id && p.name)
+    .sort((left, right) => left.id.localeCompare(right.id))
+    .slice(0, MAX_CATALOG_SIZE);
+
+  const catalogWithRefs = catalog.map((product, productRef) => ({
+    ...product,
+    productRef,
+  }));
+  const compactCatalog = catalogWithRefs.map(({ productRef, name, size }) => [productRef, name, size]);
 
   // Nombre del secreto tal como quedó guardado en el dashboard de Supabase.
   const apiKey = Deno.env.get("GROQ_API_KEY") || Deno.env.get("GROQ_API_KEY_SABOR_LATINO_MOBILE");
@@ -106,28 +110,42 @@ Deno.serve(async (req: Request) => {
       body: JSON.stringify({
         model: GROQ_MODEL,
         temperature: 0.1,
+        reasoning_effort: "low",
+        max_completion_tokens: 600,
         response_format: { type: "json_object" },
         messages: [
           { role: "system", content: buildSystemPrompt() },
           {
             role: "user",
-            content: JSON.stringify({ catalogo: catalog, pedido: text }),
+            content: JSON.stringify({ catalogo: compactCatalog }),
           },
+          { role: "user", content: JSON.stringify({ pedido: text }) },
         ],
       }),
     });
-  } catch (error) {
-    console.error("groq fetch error:", error);
+  } catch {
     return jsonResponse({ error: "No se pudo contactar al modelo de IA." }, 502);
   }
 
   if (!aiResponse.ok) {
-    const detail = await aiResponse.text().catch(() => "");
-    console.error("groq api error:", aiResponse.status, detail);
+    if (aiResponse.status === 429) {
+      return jsonResponse(
+        { error: "Se alcanzó temporalmente el límite gratuito de IA. Intenta nuevamente en unos segundos." },
+        429
+      );
+    }
     return jsonResponse({ error: "El modelo de IA rechazó la solicitud." }, 502);
   }
 
   const aiPayload = await aiResponse.json().catch(() => null);
+  const usage = aiPayload?.usage;
+  const cachedTokens = usage?.prompt_tokens_details?.cached_tokens ?? usage?.cached_tokens;
+  console.log("groq usage:", JSON.stringify({
+    prompt_tokens: usage?.prompt_tokens,
+    completion_tokens: usage?.completion_tokens,
+    total_tokens: usage?.total_tokens,
+    cached_tokens: cachedTokens,
+  }));
   const rawContent: string | undefined = aiPayload?.choices?.[0]?.message?.content;
 
   if (!rawContent) {
@@ -137,18 +155,20 @@ Deno.serve(async (req: Request) => {
   let parsed: { lines?: unknown };
   try {
     parsed = JSON.parse(rawContent);
-  } catch (error) {
-    console.error("groq json parse error:", error, rawContent);
+  } catch {
     return jsonResponse({ error: "No se pudo interpretar la respuesta de la IA." }, 502);
   }
 
-  const validIds = new Set(catalog.map((p) => p.id));
+  const productIdByRef = new Map(catalogWithRefs.map((product) => [product.productRef, product.id]));
   const lines = Array.isArray(parsed.lines)
     ? parsed.lines
         .map((line: Record<string, unknown>) => {
+          const productRef = line.product_ref;
           const productId =
-            typeof line.product_id === "string" && validIds.has(line.product_id)
-              ? line.product_id
+            typeof productRef === "number" &&
+            Number.isInteger(productRef) &&
+            productIdByRef.has(productRef)
+              ? productIdByRef.get(productRef)!
               : null;
           const qty = Number(line.qty);
           return {
