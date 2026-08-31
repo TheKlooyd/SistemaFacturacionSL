@@ -69,7 +69,7 @@ ${H}`}class st extends Error{constructor({message:n,code:s,cause:l,name:c}){var 
   <html><head>${Il()}</head>
   <body>
     <div class="title">SABOR LATINO</div>
-    <div class="sub">Nequi: 317 231 6964</div>
+    <div class="sub">Nequi: 300 550 2424</div>
     <div class="sub">${We(h?"🛵 DELIVERY":i)} — ${We(m)}</div>
     <div class="hr"></div>
 
