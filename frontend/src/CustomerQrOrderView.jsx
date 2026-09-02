@@ -48,12 +48,15 @@ const TERMINAL_MESSAGES = {
 export default function CustomerQrOrderView({ qrToken }) {
   const [sessionToken] = useState(() => loadSessionToken(qrToken));
   const [idempotencyKey] = useState(() => crypto.randomUUID());
-  const [state, setState] = useState({ phase: "loading" });
+  const [state, setState] = useState({ phase: "ready" });
+  const [started, setStarted] = useState(false);
   const [text, setText] = useState("");
   const [preview, setPreview] = useState(null);
   const [feedback, setFeedback] = useState("");
 
   useEffect(() => {
+    if (!started) return undefined;
+
     let cancelled = false;
 
     void qrOrder("start", { qrToken, sessionToken })
@@ -89,7 +92,7 @@ export default function CustomerQrOrderView({ qrToken }) {
     return () => {
       cancelled = true;
     };
-  }, [qrToken, sessionToken]);
+  }, [qrToken, sessionToken, started]);
 
   async function review() {
     if (!text.trim() || state.phase !== "draft") return;
@@ -160,7 +163,22 @@ export default function CustomerQrOrderView({ qrToken }) {
           className="qrLogo"
         />
 
-        {state.phase === "loading" ? (
+        {state.phase === "ready" ? (
+          <>
+            <h1>Pedido por QR</h1>
+            <p>Pulsa el botón para comenzar tu pedido.</p>
+            <button
+              type="button"
+              className="btnPrimary qrAction"
+              onClick={() => {
+                saveSessionToken(qrToken, sessionToken);
+                setStarted(true);
+              }}
+            >
+              Comenzar pedido
+            </button>
+          </>
+        ) : state.phase === "loading" ? (
           <p>Cargando mesa...</p>
         ) : terminalMessage ? (
           <>
@@ -240,3 +258,4 @@ export default function CustomerQrOrderView({ qrToken }) {
     </main>
   );
 }
+
