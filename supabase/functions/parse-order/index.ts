@@ -9,7 +9,11 @@
 // Secret requerido (obtén una API key gratuita en https://console.groq.com):
 //   supabase secrets set GROQ_API_KEY=tu_api_key
 
-import { pickRelevantProducts } from "../_shared/groqOrder.ts";
+import { createClient } from "npm:@supabase/supabase-js@2";
+import {
+  MAX_ORDER_TEXT_LENGTH,
+  parseOrderWithGroq,
+} from "../_shared/groqOrder.ts";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -17,15 +21,26 @@ const CORS_HEADERS = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const GROQ_MODEL = "openai/gpt-oss-120b";
-const MAX_TEXT_LENGTH = 1500;
-const MAX_CATALOG_SIZE = 400;
-
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
     headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
   });
+}
+
+async function hasAuthenticatedStaffSession(req: Request) {
+  const authorization = req.headers.get("Authorization") || "";
+  const token = authorization.startsWith("Bearer ") ? authorization.slice(7) : "";
+  const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
+  const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || "";
+
+  if (!token || !supabaseUrl || !anonKey) return false;
+
+  const client = createClient(supabaseUrl, anonKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  const { data, error } = await client.auth.getUser(token);
+  return !error && Boolean(data.user);
 }
 
 export function buildSystemPrompt() {
@@ -222,6 +237,15 @@ if (import.meta.main) Deno.serve(async (req: Request) => {
     return jsonResponse({ error: "Método no permitido." }, 405);
   }
 
+  if (!(await hasAuthenticatedStaffSession(req))) {
+    return jsonResponse({ error: "Debes iniciar sesión para usar la interpretación de pedidos." }, 401);
+  }
+
+  const contentLength = Number(req.headers.get("content-length") || 0);
+  if (contentLength > 500_000) {
+    return jsonResponse({ error: "La solicitud es demasiado grande." }, 413);
+  }
+
   let body: { text?: unknown; products?: unknown };
   try {
     body = await req.json();
@@ -235,124 +259,36 @@ if (import.meta.main) Deno.serve(async (req: Request) => {
   if (!text) {
     return jsonResponse({ error: "El pedido está vacío." }, 400);
   }
-  if (text.length > MAX_TEXT_LENGTH) {
+  if (text.length > MAX_ORDER_TEXT_LENGTH) {
     return jsonResponse({ error: "El pedido es demasiado largo." }, 400);
   }
   if (products.length === 0) {
     return jsonResponse({ error: "No hay catálogo de productos disponible." }, 400);
   }
 
-  const catalog = pickRelevantProducts(text, products)
-    .map((p: Record<string, unknown>) => ({
-      id: String(p.id ?? ""),
-      name: String(p.name ?? ""),
-      size: p.size ?? null,
-    }))
-    .filter((p) => p.id && p.name)
-    .sort((left, right) => left.id.localeCompare(right.id))
-    .slice(0, MAX_CATALOG_SIZE);
-
-  const catalogWithRefs = catalog.map((product, productRef) => ({
-    ...product,
-    productRef,
-  }));
-  const compactCatalog = catalogWithRefs.map(({ productRef, name, size }) => [productRef, name, size]);
-
-  // Nombre del secreto tal como quedó guardado en el dashboard de Supabase.
-  const apiKey = Deno.env.get("GROQ_API_KEY") || Deno.env.get("GROQ_API_KEY_SABOR_LATINO_MOBILE");
-  if (!apiKey) {
-    return jsonResponse(
-      { error: "Falta configurar GROQ_API_KEY en los secretos de la función." },
-      500
-    );
-  }
-
-  let aiResponse: Response;
   try {
-    aiResponse = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: GROQ_MODEL,
-        temperature: 0.1,
-        reasoning_effort: "low",
-        max_completion_tokens: 600,
-        response_format: { type: "json_object" },
-        messages: [
-          { role: "system", content: buildSystemPrompt() },
-          {
-            role: "user",
-            content: JSON.stringify({ catalogo: compactCatalog }),
-          },
-          { role: "user", content: JSON.stringify({ pedido: text }) },
-        ],
-      }),
-    });
-  } catch {
-    return jsonResponse({ error: "No se pudo contactar al modelo de IA." }, 502);
-  }
+    const lines = await parseOrderWithGroq(text, products, buildSystemPrompt());
+    return jsonResponse({ lines });
+  } catch (error) {
+    const code = error instanceof Error ? error.message : "GROQ_ERROR";
 
-  if (!aiResponse.ok) {
-    if (aiResponse.status === 429) {
+    if (code === "GROQ_RATE_LIMIT") {
       return jsonResponse(
         { error: "Se alcanzó temporalmente el límite gratuito de IA. Intenta nuevamente en unos segundos." },
         429
       );
     }
-    return jsonResponse({ error: "El modelo de IA rechazó la solicitud." }, 502);
+    if (code === "GROQ_NOT_CONFIGURED") {
+      return jsonResponse({ error: "Falta configurar GROQ_API_KEY en Supabase." }, 500);
+    }
+    if (code === "GROQ_NETWORK_ERROR") {
+      return jsonResponse({ error: "No se pudo contactar al modelo de IA." }, 502);
+    }
+    if (code === "GROQ_INVALID_JSON" || code === "GROQ_EMPTY_RESPONSE") {
+      return jsonResponse({ error: "No se pudo interpretar la respuesta de la IA." }, 502);
+    }
+
+    console.error("parse-order failed", code);
+    return jsonResponse({ error: "El modelo de IA no pudo procesar el pedido." }, 502);
   }
-
-  const aiPayload = await aiResponse.json().catch(() => null);
-  const usage = aiPayload?.usage;
-  const cachedTokens = usage?.prompt_tokens_details?.cached_tokens ?? usage?.cached_tokens;
-  console.log("groq usage:", JSON.stringify({
-    prompt_tokens: usage?.prompt_tokens,
-    completion_tokens: usage?.completion_tokens,
-    total_tokens: usage?.total_tokens,
-    cached_tokens: cachedTokens,
-  }));
-  const rawContent: string | undefined = aiPayload?.choices?.[0]?.message?.content;
-
-  if (!rawContent) {
-    return jsonResponse({ error: "El modelo de IA no devolvió contenido." }, 502);
-  }
-
-  let parsed: { lines?: unknown };
-  try {
-    parsed = JSON.parse(rawContent);
-  } catch {
-    return jsonResponse({ error: "No se pudo interpretar la respuesta de la IA." }, 502);
-  }
-
-  const productIdByRef = new Map(catalogWithRefs.map((product) => [product.productRef, product.id]));
-  const lines = Array.isArray(parsed.lines)
-    ? parsed.lines
-        .map((line: Record<string, unknown>) => {
-          const productRef = line.product_ref;
-          const productId =
-            typeof productRef === "number" &&
-            Number.isInteger(productRef) &&
-            productIdByRef.has(productRef)
-              ? productIdByRef.get(productRef)!
-              : null;
-          const qty = Number(line.qty);
-          return {
-            product_id: productId,
-            qty: Number.isFinite(qty) && qty > 0 ? qty : 1,
-            note: typeof line.note === "string" ? line.note.trim() : "",
-            unmatched_name:
-              productId === null
-                ? typeof line.unmatched_name === "string" && line.unmatched_name.trim()
-                  ? line.unmatched_name.trim()
-                  : "Producto no identificado"
-                : null,
-          };
-        })
-        .filter((line) => line.product_id || line.unmatched_name)
-    : [];
-
-  return jsonResponse({ lines });
 });

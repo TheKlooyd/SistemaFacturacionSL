@@ -7,14 +7,23 @@
 CREATE TABLE IF NOT EXISTS mesas (
   id   SERIAL PRIMARY KEY,
   name TEXT NOT NULL,
-  status TEXT NOT NULL DEFAULT 'FREE'
+  status TEXT NOT NULL DEFAULT 'FREE',
+  is_active BOOLEAN NOT NULL DEFAULT TRUE
 );
 
--- Insertar las 12 mesas por defecto (solo si la tabla está vacía)
-INSERT INTO mesas (name, status)
-SELECT 'Mesa ' || i, 'FREE'
+ALTER TABLE mesas ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT TRUE;
+
+-- Mesas 1-8 activas; 9-12 reservadas para activarlas en el futuro.
+INSERT INTO mesas (id, name, status, is_active)
+SELECT i, 'Mesa ' || i, 'FREE', i <= 8
 FROM generate_series(1, 12) AS i
-WHERE NOT EXISTS (SELECT 1 FROM mesas LIMIT 1);
+ON CONFLICT (id) DO UPDATE SET is_active = EXCLUDED.is_active;
+
+SELECT setval(
+  pg_get_serial_sequence('public.mesas', 'id'),
+  (SELECT GREATEST(COALESCE(MAX(id), 1), 12) FROM mesas),
+  TRUE
+);
 
 -- Categorías de productos
 CREATE TABLE IF NOT EXISTS categorias (
@@ -79,8 +88,8 @@ CREATE TABLE IF NOT EXISTS cierres_diarios (
 
 -- ============================================================
 -- Row Level Security (RLS)
--- Habilitar RLS y permitir acceso con la anon key
--- (ajusta según tus necesidades de seguridad)
+-- El POS requiere una sesión de Supabase Auth. Los clientes QR acceden
+-- solamente por la Edge Function qr-order.
 -- ============================================================
 
 ALTER TABLE mesas            ENABLE ROW LEVEL SECURITY;
@@ -91,11 +100,19 @@ ALTER TABLE ordenes          ENABLE ROW LEVEL SECURITY;
 ALTER TABLE pagos            ENABLE ROW LEVEL SECURITY;
 ALTER TABLE cierres_diarios  ENABLE ROW LEVEL SECURITY;
 
--- Políticas: acceso total para la anon key (uso interno del restaurante)
-CREATE POLICY "allow_all_mesas"           ON mesas            FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "allow_all_categorias"      ON categorias       FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "allow_all_productos"       ON productos        FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "allow_all_clientes"        ON clientes         FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "allow_all_ordenes"         ON ordenes          FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "allow_all_pagos"           ON pagos            FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "allow_all_cierres_diarios" ON cierres_diarios  FOR ALL USING (true) WITH CHECK (true);
+DO $$
+DECLARE table_name TEXT;
+BEGIN
+  FOREACH table_name IN ARRAY ARRAY[
+    'mesas', 'categorias', 'productos', 'clientes',
+    'ordenes', 'pagos', 'cierres_diarios'
+  ] LOOP
+    EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', 'allow_all_' || table_name, table_name);
+    EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', 'staff_authenticated', table_name);
+    EXECUTE format(
+      'CREATE POLICY staff_authenticated ON public.%I FOR ALL TO authenticated USING (true) WITH CHECK (true)',
+      table_name
+    );
+  END LOOP;
+END
+$$;

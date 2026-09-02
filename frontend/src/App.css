@@ -90,6 +90,9 @@ body{
 .qrPreview h2{ font-size: 18px; margin: 0 0 10px; }
 .qrLine, .qrTotal{ display: flex; justify-content: space-between; gap: 16px; padding: 7px 0; }
 .qrTotal{ margin-top: 8px; border-top: 1px solid var(--border); font-size: 19px; }
+.qrFeedback, .qrWarning{ margin: 12px 0 0; padding: 10px 12px; border-radius: 6px; }
+.qrFeedback{ background: rgba(205,5,8,.09); color: #8b0709; }
+.qrWarning{ background: rgba(254,174,13,.16); color: #6b4300; }
 .qrAction{ width: 100%; margin-top: 12px; }
 .authPanel{ display: grid; gap: 12px; max-width: 380px; }
 .authPanel h1{ text-align: center; }

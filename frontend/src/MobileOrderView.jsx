@@ -34,15 +34,20 @@ export default function MobileOrderView({ onBack }) {
     };
   }, []);
 
+  const activeTables = useMemo(
+    () => tables.filter((table) => table.isActive !== false),
+    [tables]
+  );
+
   const selectedTable = useMemo(
-    () => tables.find((t) => String(t.id) === String(selectedTableId)) || null,
-    [tables, selectedTableId]
+    () => activeTables.find((table) => String(table.id) === String(selectedTableId)) || null,
+    [activeTables, selectedTableId]
   );
 
   async function handleSubmit() {
     if (submitting) return;
 
-    if (!selectedTableId) {
+    if (!selectedTableId || !selectedTable) {
       setFeedback({ type: "error", message: "Selecciona primero la mesa del cliente." });
       return;
     }
@@ -75,6 +80,7 @@ export default function MobileOrderView({ onBack }) {
         const product = line.product_id ? productById.get(String(line.product_id)) : null;
         if (product) {
           matchedLines.push({
+            line_id: crypto.randomUUID(),
             product_id: product.id,
             name: product.name,
             unit_price: product.price,
@@ -153,7 +159,7 @@ export default function MobileOrderView({ onBack }) {
           ) : (
             <div className="mobileTableGridScroll">
               <div className="mobileTableGrid">
-                {tables.map((t) => (
+                {activeTables.map((t) => (
                   <button
                     key={t.id}
                     type="button"

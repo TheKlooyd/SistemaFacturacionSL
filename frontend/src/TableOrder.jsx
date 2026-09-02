@@ -4,7 +4,7 @@ import { loadCategories } from "./categoriesStore";
 import { clearOrder, getOpenOrder, setOpenOrder } from "./ordersStore";
 import { loadClients } from "./clientsStore";
 import PayModal from "./PayModal";
-import { addPayment } from "./paymentsStore";
+import { completePaymentAndCloseOrder } from "./paymentsStore";
 import { openPrintWindow } from "./print";
 import { ticketComanda, ticketFactura, ticketCuenta } from "./printTemplates";
 import {
@@ -87,6 +87,12 @@ function sizeLabel(s) {
   return s;
 }
 
+function withLineIds(items = []) {
+  return items.map((item) => item.line_id
+    ? item
+    : { ...item, line_id: crypto.randomUUID() });
+}
+
 export default function TableOrder({ table, onBack, onPaid }) {
   const [categories, setCategories] = useState([]);
   const [products, setProducts] = useState([]);
@@ -106,7 +112,7 @@ export default function TableOrder({ table, onBack, onPaid }) {
   // Notas por producto
   const [noteModalId, setNoteModalId] = useState(null);
   const [noteText, setNoteText] = useState("");
-  const [now, setNow] = useState(Date.now());
+  const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
     const intervalId = window.setInterval(() => setNow(Date.now()), 1000);
@@ -114,18 +120,25 @@ export default function TableOrder({ table, onBack, onPaid }) {
   }, []);
 
   function openNoteModal(it) {
-    setNoteModalId(it.product_id);
+    setNoteModalId(it.line_id);
     setNoteText(it.note || "");
   }
 
   function saveNote() {
     if (noteModalId == null) return;
     const nextItems = order.items.map((x) =>
-      x.product_id === noteModalId ? { ...x, note: noteText.trim() } : x
+      x.line_id === noteModalId ? { ...x, note: noteText.trim() } : x
     );
     persist({ ...order, items: nextItems });
     setNoteModalId(null);
     setNoteText("");
+  }
+
+  async function recoverOrderAfterSaveError(error) {
+    console.error("persist order error:", error);
+    alert("No se pudo guardar el cambio de la cuenta. Se recargará la información de la mesa.");
+    const savedOrder = await getOpenOrder(String(table.id));
+    setOrder({ ...savedOrder, items: withLineIds(savedOrder.items) });
   }
 
   // Delivery
@@ -143,11 +156,11 @@ export default function TableOrder({ table, onBack, onPaid }) {
     setOrder(normalized);
 
     if ((normalized.items || []).length === 0) {
-      clearOrder(String(table.id)).catch(console.error);
+      clearOrder(String(table.id)).catch(recoverOrderAfterSaveError);
       return;
     }
 
-    setOpenOrder(String(table.id), normalized).catch(console.error);
+    setOpenOrder(String(table.id), normalized).catch(recoverOrderAfterSaveError);
   }
 
   function persistDelivery(delivery, client) {
@@ -155,7 +168,7 @@ export default function TableOrder({ table, onBack, onPaid }) {
       ...order,
       isDelivery: delivery,
       deliveryClient: client,
-    }).catch(console.error);
+    }).catch(recoverOrderAfterSaveError);
   }
 
   function toggleDelivery() {
@@ -217,7 +230,7 @@ export default function TableOrder({ table, onBack, onPaid }) {
       if (cats.length) setSelectedCatId(cats[0].id);
       setClients(loadedClients);
       if (savedOrder) {
-        setOrder(savedOrder);
+        setOrder({ ...savedOrder, items: withLineIds(savedOrder.items) });
         setIsDelivery(savedOrder.isDelivery || false);
         setSelectedClient(savedOrder.deliveryClient || null);
       }
@@ -270,17 +283,26 @@ export default function TableOrder({ table, onBack, onPaid }) {
   }
 
   function addProduct(p, increment = 1) {
-    const existing = order.items.find((x) => x.product_id === p.id);
+    const existing = order.items.find(
+      (item) => item.product_id === p.id && !(item.note || "").trim()
+    );
     let nextItems;
 
     if (existing) {
       nextItems = order.items.map((x) =>
-        x.product_id === p.id ? { ...x, qty: x.qty + increment } : x
+        x.line_id === existing.line_id ? { ...x, qty: x.qty + increment } : x
       );
     } else {
       nextItems = [
         ...order.items,
-        { product_id: p.id, name: p.name, unit_price: p.price, qty: increment },
+        {
+          line_id: crypto.randomUUID(),
+          product_id: p.id,
+          name: p.name,
+          unit_price: p.price,
+          qty: increment,
+          note: "",
+        },
       ];
     }
 
@@ -291,8 +313,8 @@ export default function TableOrder({ table, onBack, onPaid }) {
     addProduct(p, 0.5);
   }
 
-  function changeQty(product_id, delta) {
-    const current = order.items.find((x) => x.product_id === product_id);
+  function changeQty(lineId, delta) {
+    const current = order.items.find((item) => item.line_id === lineId);
     if (!current) return;
 
     const willDelete = delta < 0 && current.qty + delta <= 0;
@@ -302,7 +324,7 @@ export default function TableOrder({ table, onBack, onPaid }) {
 
     const nextItems = order.items
       .map((x) =>
-        x.product_id === product_id ? { ...x, qty: x.qty + delta } : x
+        x.line_id === lineId ? { ...x, qty: x.qty + delta } : x
       )
       .filter((x) => x.qty > 0);
 
@@ -372,14 +394,16 @@ export default function TableOrder({ table, onBack, onPaid }) {
   async function confirmPay({ paymentSplits, method, tipAmount, discountAmount, paidAmount, totalWithTip }) {
     const paymentCreatedAt = new Date().toISOString();
     const paymentItems = order.items.map((it) => ({
+      line_id: it.line_id,
       product_id: it.product_id,
       name: it.name,
       unit_price: it.unit_price,
       qty: it.qty,
+      note: it.note || "",
       line_total: it.unit_price * it.qty,
     }));
 
-    await addPayment({
+    await completePaymentAndCloseOrder({
       id: crypto.randomUUID(),
       createdAt: paymentCreatedAt,
       tableId: table.id,
@@ -425,13 +449,6 @@ export default function TableOrder({ table, onBack, onPaid }) {
     } catch (error) {
       console.error("print invoice error:", error);
       alert("El pago se registró, pero no se pudo imprimir la factura.");
-    }
-
-    try {
-      await clearOrder(String(table.id));
-    } catch (error) {
-      console.error("clear paid order error:", error);
-      alert("El pago se registró, pero no se pudo limpiar la cuenta. Recarga para verificar el estado de la mesa.");
     }
 
     setOrder({ items: [], status: "OPEN" });
@@ -711,7 +728,7 @@ export default function TableOrder({ table, onBack, onPaid }) {
             ) : (
               <div className="orderLines">
                 {order.items.map((it) => (
-                  <div key={it.product_id} className="orderLine" style={{ flexDirection: "column", alignItems: "stretch", gap: 4 }}>
+                  <div key={it.line_id} className="orderLine" style={{ flexDirection: "column", alignItems: "stretch", gap: 4 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                       <div>
                         <div style={{ fontWeight: 900 }}>{it.name}</div>
@@ -719,13 +736,13 @@ export default function TableOrder({ table, onBack, onPaid }) {
                       </div>
 
                       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                        <button className="btn" onClick={() => changeQty(it.product_id, -1)}>–</button>
+                        <button className="btn" onClick={() => changeQty(it.line_id, -1)}>–</button>
 
                         <div style={{ minWidth: 24, textAlign: "center", fontWeight: 900 }}>
                           {fmtQty(it.qty)}
                         </div>
 
-                        <button className="btn" onClick={() => changeQty(it.product_id, +1)}>+</button>
+                        <button className="btn" onClick={() => changeQty(it.line_id, +1)}>+</button>
                       </div>
                     </div>
 
@@ -782,7 +799,7 @@ export default function TableOrder({ table, onBack, onPaid }) {
           >
             <h3 style={{ marginTop: 0, marginBottom: 12 }}>Nota del producto</h3>
             <div style={{ opacity: 0.7, fontSize: 13, marginBottom: 8 }}>
-              {order.items.find((x) => x.product_id === noteModalId)?.name}
+              {order.items.find((x) => x.line_id === noteModalId)?.name}
             </div>
             <textarea
               autoFocus
@@ -796,13 +813,13 @@ export default function TableOrder({ table, onBack, onPaid }) {
             />
             <div style={{ display: "flex", gap: 10, marginTop: 12, justifyContent: "flex-end" }}>
               <button className="btn" onClick={() => setNoteModalId(null)}>Cancelar</button>
-              {noteText.trim() === "" && order.items.find((x) => x.product_id === noteModalId)?.note && (
+              {noteText.trim() === "" && order.items.find((x) => x.line_id === noteModalId)?.note && (
                 <button
                   className="btn"
                   style={{ color: "#c0392b" }}
                   onClick={() => {
                     const nextItems = order.items.map((x) =>
-                      x.product_id === noteModalId ? { ...x, note: "" } : x
+                      x.line_id === noteModalId ? { ...x, note: "" } : x
                     );
                     persist({ ...order, items: nextItems });
                     setNoteModalId(null);
@@ -862,7 +879,7 @@ export default function TableOrder({ table, onBack, onPaid }) {
               {order.items.map((it) => {
                 const lineTotal = it.unit_price * it.qty;
                 return (
-                  <div key={it.product_id} style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
+                  <div key={it.line_id} style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
                     <div>
                       <div style={{ fontWeight: 700, fontSize: 15 }}>{fmtQty(it.qty)} x {it.name}</div>
                       <div style={{ fontSize: 12, color: "#888" }}>${formatCOP(it.unit_price)} c/u</div>

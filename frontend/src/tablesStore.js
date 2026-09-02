@@ -101,6 +101,7 @@ export async function addTable() {
     id: nextNumber,
     name: `Mesa ${nextNumber}`,
     status: "FREE",
+    is_active: nextNumber <= 8,
   });
 
   if (error) {

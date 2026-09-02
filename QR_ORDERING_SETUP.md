@@ -1,74 +1,167 @@
-# Pedidos QR
+# Pedidos por código QR
 
-## Arquitectura
+## Qué implementa
 
-El QR contiene un token aleatorio de 32 bytes y abre `?qr=TOKEN`. El navegador nunca recibe un numero de mesa desde la URL ni puede elegirlo. `qr-order` calcula SHA-256 del QR y del secreto de sesion, consulta las tablas protegidas usando `SUPABASE_SERVICE_ROLE_KEY`, carga el catalogo real y ejecuta las mismas reglas de Groq exportadas por `parse-order`. La vista previa y el total se almacenan en el servidor; `submit` inserta la misma fila `ordenes` usada por el POS.
+Cada QR contiene un token aleatorio de 32 bytes y abre una URL como
+`?qr=TOKEN`. La mesa se resuelve en el servidor; el navegador no puede escogerla
+ni enviar precios confiables.
 
-Las sesiones duran 20 minutos desde su creacion. Un indice parcial y bloqueos `FOR UPDATE` hacen que solo haya un borrador o pedido QR activo por mesa. El envio conserva una clave de idempotencia. Un trigger cierra la sesion QR cuando el POS borra la orden abierta tras un pago, por lo que el QR vuelve a estar disponible sin una segunda llamada del navegador.
+- Mesas 1 a 8: activas inicialmente.
+- Mesas 9 a 12: creadas pero inactivas.
+- Borrador QR: vence a los 20 minutos.
+- Pedido enviado: bloquea la mesa hasta pagar o cerrar la orden.
+- Mismo dispositivo: recupera el texto y la vista previa guardada.
+- Otro dispositivo: no puede apropiarse de la sesión.
+- Máximo 20 interpretaciones con Groq por sesión y una cada dos segundos.
+- Pago y cierre: ocurren en una sola transacción de PostgreSQL.
 
-`draft`, `submitted`, `closed` y `expired` son los estados implementados. `draft_elsewhere`, `occupied` e `invalid` son respuestas publicas de la funcion, no estados persistidos.
+El POS requiere Supabase Auth. El cliente anónimo no tiene acceso directo a las
+tablas; solamente puede usar la Edge Function pública `qr-order` con un QR y un
+secreto de sesión válidos.
 
-## Archivos
+## Antes de desplegar
 
-Nuevos: `supabase/migrations/202608310001_qr_ordering.sql`, `supabase/functions/qr-order/index.ts`, `supabase/functions/_shared/groqOrder.ts`, `supabase/config.toml`, `frontend/src/CustomerQrOrderView.jsx`, `frontend/src/StaffAuthGate.jsx`, `frontend/src/qrOrderApi.js`, `scripts/generate-qr-codes.mjs` y este documento.
+1. Haga una copia de seguridad de Supabase.
+2. Confirme que esta migración todavía no haya sido aplicada. Si ya ejecutó la
+   versión anterior de `202608310001_qr_ordering.sql`, no vuelva a ejecutarla:
+   cree una migración correctiva nueva o solicite una revisión.
+3. Compruebe que no existan dos órdenes abiertas para la misma mesa:
 
-Modificados: `frontend/src/App.jsx`, `frontend/src/TableOrder.jsx`, `frontend/src/tablesStore.js`, `frontend/src/App.css`, `supabase/functions/parse-order/index.ts`, `.gitignore`, `package.json` y `frontend/package.json`.
+```sql
+select table_id, count(*)
+from public.ordenes
+where status = 'OPEN'
+group by table_id
+having count(*) > 1;
+```
 
-## Despliegue Manual
+La consulta debe devolver cero filas. La migración se detiene si encuentra
+duplicados y nunca borra cuentas para resolverlos automáticamente.
 
-No ejecute estos comandos contra produccion sin revisar primero la migracion y tener una copia de seguridad.
+## Crear el usuario del personal
+
+En Supabase Dashboard abra **Authentication > Providers** y habilite Email.
+Después vaya a **Authentication > Users** y cree el primer usuario con correo y
+contraseña. No habilite el registro público: cualquier usuario registrado tendría
+acceso de personal al POS.
+
+## Aplicar base de datos y funciones
+
+Desde la raíz del repositorio, en PowerShell:
 
 ```powershell
 npx supabase login
 npx supabase link --project-ref lpyivecyvtivtkbppjtr
 npx supabase db push
+```
+
+Si `GROQ_API_KEY` ya está configurada, no necesita volver a guardarla. Si falta:
+
+```powershell
 npx supabase secrets set GROQ_API_KEY="SU_CLAVE_GROQ" --project-ref lpyivecyvtivtkbppjtr
+```
+
+Despliegue ambas funciones:
+
+```powershell
 npx supabase functions deploy parse-order --project-ref lpyivecyvtivtkbppjtr
 npx supabase functions deploy qr-order --project-ref lpyivecyvtivtkbppjtr
+```
+
+`parse-order` exige un usuario autenticado. `qr-order` permite acceso público,
+pero valida el token QR, el secreto de sesión, los límites de uso y todos los
+precios del lado del servidor.
+
+`SUPABASE_SERVICE_ROLE_KEY` es administrada automáticamente por Supabase para
+las Edge Functions. Nunca la copie a un archivo `.env` del frontend ni a una
+variable que empiece por `VITE_`.
+
+## Generar y registrar los 12 QR
+
+Desde la raíz:
+
+```powershell
+npm ci
+npm run generate:qr
+```
+
+Para utilizar otra URL pública:
+
+```powershell
+$env:QR_BASE_URL='https://theklooyd.github.io/SistemaFacturacionSL/'
+npm run generate:qr
+```
+
+Se crea una carpeta privada `qr-output/` con:
+
+- `mesa-01.png` a `mesa-12.png`.
+- `register-qr-codes.sql`.
+- `qr-manifest.json`, que permite recuperar o reimprimir los QR originales.
+
+La carpeta está ignorada por Git. Guarde una copia privada de toda la carpeta;
+no suba el manifiesto, las imágenes ni los tokens al repositorio.
+
+Después de aplicar la migración, ejecute `register-qr-codes.sql` una sola vez en
+Supabase SQL Editor. El archivo se niega a reemplazar registros existentes para
+evitar generar imágenes que no coincidan con los hashes de la base de datos.
+
+## Activar o desactivar mesas
+
+La función actualiza la mesa y su QR en una única operación:
+
+```sql
+select public.qr_set_table_active(9, true);  -- activar mesa 9
+select public.qr_set_table_active(9, false); -- desactivar mesa 9
+```
+
+No permite desactivar una mesa que tenga un borrador QR, un pedido enviado o una
+orden abierta. Al activar las mesas 9 a 12, sus QR originales comienzan a
+funcionar y aparecen en el POS después de actualizar la página.
+
+## Revocar un QR perdido
+
+No genere nuevamente los doce QR. Genere un token para esa mesa, calcule su
+SHA-256, imprima el nuevo QR y actualice únicamente `token_hash` en
+`mesa_qr_codes`. Haga el cambio después de tener impreso el reemplazo, porque el
+QR anterior deja de funcionar inmediatamente.
+
+## Validación local
+
+```powershell
+npm ci
+npm run test:qr
 Set-Location frontend
 npm ci
 npm run lint
 npm run build
 ```
 
-`SUPABASE_SERVICE_ROLE_KEY` es un secreto administrado por Supabase para Edge Functions. Confirme en Dashboard > Edge Functions > Secrets que existe y nunca lo coloque en `VITE_*`. El frontend solamente conserva `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY`.
+Las pruebas crean QR temporales fuera del repositorio y los eliminan al terminar;
+ya no requieren ejecutar primero `npm run generate:qr`.
 
-Para publicar GitHub Pages, use el flujo ya configurado del repositorio despues de `npm run build`; Vite ya usa `/SistemaFacturacionSL/` como base. No incluya `qr-output/` en ese despliegue.
-
-## Personal Y RLS
-
-En Supabase Dashboard abra Authentication > Providers y habilite Email. En Authentication > Users cree el primer usuario con correo y contrasena. Sin `?qr`, la aplicacion solicita esa sesion. La migracion elimina las politicas `allow_all_*` y da acceso a `authenticated`; por tanto, cada usuario creado en Auth es personal autorizado. No habilite registro publico si no desea que cualquier correo pueda crear una cuenta.
-
-## Generar E Instalar QR
-
-Desde la raiz:
+Para validar PostgreSQL y las Edge Functions localmente necesita Docker Desktop:
 
 ```powershell
-npm install
-npm run generate:qr
+npx supabase start
+npx supabase db reset
+npx supabase functions serve
 ```
 
-Para otra URL publica use `QR_BASE_URL`, por ejemplo: `$env:QR_BASE_URL='https://theklooyd.github.io/SistemaFacturacionSL/'; npm run generate:qr`.
+## Prueba manual obligatoria
 
-El script se niega a sobrescribir `qr-output/`. Genera `mesa-01.png` a `mesa-12.png` y `register-qr-codes.sql`; estos archivos, URLs y tokens estan ignorados por Git. Imprima los PNG sin copiar el token a documentos publicos. Ejecute el SQL local generado solamente despues de aplicar la migracion. Sus hashes insertan mesas 1-8 activas y 9-12 inactivas.
+1. Inicie sesión en el POS con el usuario del personal.
+2. Escanee el QR de la mesa 1 y escriba un pedido.
+3. Recargue antes de enviarlo y confirme que el borrador reaparece.
+4. Escanee el mismo QR desde otro teléfono y confirme el bloqueo.
+5. Envíe el pedido y compruebe la notificación, la mesa y la comanda.
+6. Intente escanear nuevamente: debe mostrar que la mesa está en curso.
+7. Registre el pago: la orden y la sesión QR deben cerrarse juntas.
+8. Escanee nuevamente y confirme que permite un pedido nuevo.
+9. Pruebe una mesa 9 a 12: debe indicar que no está disponible.
+10. Pruebe frases como `gaseosa grande de manzana`, `coca 1.5` y
+    `agua con gas` para verificar producto y nota.
 
-Para activar o desactivar una mesa sin regenerar QR:
+## Publicar el frontend
 
-```sql
-update public.mesa_qr_codes set is_active = true where mesa_number = 9;
-update public.mesas set is_active = true where id = 9;
--- Desactive solo una mesa sin orden abierta:
-update public.mesa_qr_codes q set is_active = false
-where q.mesa_number = 9 and not exists (select 1 from public.ordenes o where o.table_id = q.mesa_id::text and o.status = 'OPEN');
-update public.mesas set is_active = false where id = 9;
-```
-
-Para revocar un QR, genere un token nuevo fuera del repositorio, calcule SHA-256 y actualice `mesa_qr_codes.token_hash` para una sola mesa. Imprima el nuevo PNG antes de invalidar el anterior. No desactive una mesa ocupada: cobre o cierre la orden primero.
-
-## Pruebas Y Recuperacion
-
-Pruebe QR valido/invalido, una mesa inactiva, borrador en el mismo y otro dispositivo, vencimiento de 20 minutos, vista previa con producto inexistente, doble envio, pago desde POS y un nuevo escaneo. Verifique tambien que anon no puede consultar tablas desde SQL/API y que un usuario Auth si opera el POS. Las mesas 9-12 aparecen despues de activarlas y actualizar el POS.
-
-Para una sesion atascada, primero confirme que no existe una `ordenes` abierta para la mesa. Luego cierre explicitamente la sesion, conservando auditoria: `update public.qr_sessions set status='closed', closed_at=now() where id='UUID' and status in ('draft','submitted');`. Para un borrador, espere 20 minutos o marque `expired`. No borre pagos, ordenes historicas ni QR para liberar una mesa.
-
-No hay Docker/Podman en el equipo que implemento este cambio, por lo que `supabase db lint --local` y `supabase functions serve` requieren instalar Docker Desktop y ejecutar `npx supabase start` antes de la validacion local. La migracion no fue aplicada ni desplegada automaticamente.
+Cuando todo lo anterior funcione, fusione la rama con `main`. El workflow de
+GitHub Pages compila `frontend/` y publica únicamente los pushes a `main`.

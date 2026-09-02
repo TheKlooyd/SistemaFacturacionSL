@@ -60,6 +60,37 @@ export async function addPayment(payment) {
   return data;
 }
 
+/** Registra el pago y cierra la orden en una única transacción de PostgreSQL. */
+export async function completePaymentAndCloseOrder(payment) {
+  const payload = {
+    id: payment.id,
+    table_id: String(payment.tableId),
+    table_name: payment.tableName,
+    is_delivery: payment.isDelivery || false,
+    delivery_client: payment.deliveryClient || null,
+    method: payment.method || null,
+    payment_splits: payment.paymentSplits || null,
+    subtotal: payment.subtotal,
+    tip_amount: payment.tipAmount,
+    discount_amount: payment.discountAmount || 0,
+    total_with_tip: payment.totalWithTip,
+    paid_amount: payment.paidAmount,
+    items: payment.items || [],
+    created_at: payment.createdAt || new Date().toISOString(),
+  };
+
+  const { data, error } = await supabase.rpc("complete_table_payment", {
+    p_payment: payload,
+  });
+
+  if (error) {
+    console.error("completePaymentAndCloseOrder error:", error);
+    throw error;
+  }
+
+  return data;
+}
+
 export async function updatePayment(id, changes) {
   const payload = {};
   if (changes.items !== undefined) payload.items = changes.items;

@@ -57,7 +57,7 @@ export function StaffPosApp() {
   const [isAddingTable, setIsAddingTable] = useState(false);
   const [deletingTableId, setDeletingTableId] = useState(null);
   const [selectedTable, setSelectedTable] = useState(null);
-  const [now, setNow] = useState(Date.now());
+  const [now, setNow] = useState(() => Date.now());
   const [mobileNotifications, setMobileNotifications] = useState([]);
 
   useEffect(() => {

@@ -1,5 +1,26 @@
 import { supabase } from "./supabaseClient";
 
+function mergeConcurrentItems(existingItems = [], incomingItems = []) {
+  const merged = existingItems.map((item) => ({ ...item }));
+
+  for (const item of incomingItems) {
+    const index = merged.findIndex(
+      (current) => current.product_id === item.product_id
+        && (current.note || "") === (item.note || "")
+    );
+    if (index >= 0) {
+      merged[index] = {
+        ...merged[index],
+        qty: Number(merged[index].qty || 0) + Number(item.qty || 0),
+      };
+    } else {
+      merged.push(item);
+    }
+  }
+
+  return merged;
+}
+
 /** Returns a map { tableId: orderObj } for all open orders */
 export async function getAllOpenOrders() {
   const { data, error } = await supabase
@@ -76,6 +97,11 @@ export async function setOpenOrder(tableId, order) {
     .eq("status", "OPEN")
     .order("opened_at", { ascending: false });
 
+  if (fetchError) {
+    console.error("setOpenOrder fetch error:", fetchError);
+    throw fetchError;
+  }
+
   const payload = {
     table_id: String(tableId),
     items: order.items || [],
@@ -85,7 +111,7 @@ export async function setOpenOrder(tableId, order) {
     opened_at: order.openedAt || new Date().toISOString(),
   };
 
-  if (!fetchError && existing && existing.length > 0) {
+  if (existing && existing.length > 0) {
     // Keep the one with most items, delete the rest
     const sorted = [...existing].sort(
       (a, b) => (b.items?.length || 0) - (a.items?.length || 0)
@@ -101,20 +127,59 @@ export async function setOpenOrder(tableId, order) {
       .from("ordenes")
       .update(payload)
       .eq("id", keepId);
-    if (error) console.error("setOpenOrder update error:", error);
+    if (error) {
+      console.error("setOpenOrder update error:", error);
+      throw error;
+    }
   } else {
     const { error } = await supabase
       .from("ordenes")
       .insert({ ...payload, opened_at: new Date().toISOString() });
-    if (error) console.error("setOpenOrder insert error:", error);
+
+    // El índice único puede detectar que otro dispositivo abrió la mesa entre
+    // el SELECT y el INSERT. En ese caso se actualiza la orden que ganó la carrera.
+    if (error?.code === "23505") {
+      const { data: concurrent, error: concurrentError } = await supabase
+        .from("ordenes")
+        .select("id,items,opened_at")
+        .eq("table_id", String(tableId))
+        .eq("status", "OPEN")
+        .maybeSingle();
+
+      if (concurrentError || !concurrent) {
+        console.error("setOpenOrder concurrent fetch error:", concurrentError || error);
+        throw concurrentError || error;
+      }
+
+      const { error: updateError } = await supabase
+        .from("ordenes")
+        .update({
+          ...payload,
+          items: mergeConcurrentItems(concurrent.items, payload.items),
+          opened_at: concurrent.opened_at || payload.opened_at,
+        })
+        .eq("id", concurrent.id);
+      if (updateError) {
+        console.error("setOpenOrder concurrent update error:", updateError);
+        throw updateError;
+      }
+    } else if (error) {
+      console.error("setOpenOrder insert error:", error);
+      throw error;
+    }
   }
 }
 
 export async function clearOrder(tableId) {
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("ordenes")
     .delete()
     .eq("table_id", String(tableId))
-    .eq("status", "OPEN");
-  if (error) console.error("clearOrder error:", error);
+    .eq("status", "OPEN")
+    .select("id");
+  if (error) {
+    console.error("clearOrder error:", error);
+    throw error;
+  }
+  return data || [];
 }
