@@ -1171,3 +1171,21 @@ body{
 .page > .card .list{
   min-height: 0;
 }
+
+/* FIX: permitir desplazamiento vertical en pedidos por QR */
+.qrCustomerPage {
+  height: 100vh;
+  min-height: 0;
+  align-items: start;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+  padding-bottom: calc(32px + env(safe-area-inset-bottom));
+}
+
+@supports (height: 100dvh) {
+  .qrCustomerPage {
+    height: 100dvh;
+  }
+}
