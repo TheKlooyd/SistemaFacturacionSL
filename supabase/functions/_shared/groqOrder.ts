@@ -1,5 +1,5 @@
 export const MAX_ORDER_TEXT_LENGTH = 1500;
-export const MAX_CATALOG_SIZE = 100;
+export const MAX_CATALOG_SIZE = 40;
 
 type CatalogProduct = Record<string, unknown>;
 
@@ -139,39 +139,78 @@ export async function parseOrderWithGroq(
 
   if (catalog.length === 0) throw new Error("EMPTY_CATALOG");
 
-  let response: Response;
-  try {
-    response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "openai/gpt-oss-120b",
-        temperature: 0.1,
-        reasoning_effort: "low",
-        max_completion_tokens: 600,
-        response_format: { type: "json_object" },
-        messages: [
-          { role: "system", content: prompt },
-          {
-            role: "user",
-            content: JSON.stringify({
-              catalogo: catalog.map(({ productRef, name, size }) => [productRef, name, size]),
-            }),
-          },
-          { role: "user", content: JSON.stringify({ pedido: text }) },
-        ],
+const requestBody = JSON.stringify({
+  model: "openai/gpt-oss-120b",
+  temperature: 0.1,
+  reasoning_effort: "low",
+  max_completion_tokens: 400,
+  response_format: { type: "json_object" },
+  messages: [
+    { role: "system", content: prompt },
+    {
+      role: "user",
+      content: JSON.stringify({
+        catalogo: catalog.map(({ productRef, name, size }) => [
+          productRef,
+          name,
+          size,
+        ]),
       }),
-    });
+    },
+    { role: "user", content: JSON.stringify({ pedido: text }) },
+  ],
+});
+
+let response: Response | null = null;
+
+for (let attempt = 0; attempt < 2; attempt += 1) {
+  try {
+    response = await fetch(
+      "https://api.groq.com/openai/v1/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: requestBody,
+      },
+    );
   } catch {
     throw new Error("GROQ_NETWORK_ERROR");
   }
 
-  if (!response.ok) {
-    throw new Error(response.status === 429 ? "GROQ_RATE_LIMIT" : "GROQ_ERROR");
+  if (response.status !== 429) break;
+
+  const retryAfterSeconds = Number.parseFloat(
+    response.headers.get("retry-after") || "",
+  );
+
+  const waitMs = Math.max(
+    1000,
+    Math.ceil(retryAfterSeconds * 1000) + 250,
+  );
+
+  if (
+    attempt === 1 ||
+    !Number.isFinite(retryAfterSeconds) ||
+    waitMs > 20_000
+  ) {
+    throw new Error("GROQ_RATE_LIMIT");
   }
+
+  await new Promise((resolve) => setTimeout(resolve, waitMs));
+}
+
+if (!response) {
+  throw new Error("GROQ_NETWORK_ERROR");
+}
+
+if (!response.ok) {
+  throw new Error(
+    response.status === 429 ? "GROQ_RATE_LIMIT" : "GROQ_ERROR",
+  );
+}
 
   const payload = await response.json().catch(() => null);
   const usage = payload?.usage;
