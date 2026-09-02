@@ -7,3 +7,6 @@ qr-output/
 *.tokens.local
 *.secrets.local
 .DS_Store
+
+# Archivos temporales locales de Supabase
+supabase/.temp/
