@@ -116,7 +116,7 @@ export function StaffPosApp() {
 
   function isTableBusy(tableId) {
     const order = ordersMap[String(tableId)];
-    return (order?.items?.length || 0) > 0;
+    return order?.status === "OPEN";
   }
 
   async function refreshTables() {

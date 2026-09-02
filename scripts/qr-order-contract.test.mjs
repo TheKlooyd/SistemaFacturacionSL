@@ -9,9 +9,16 @@ import { pickRelevantProducts } from "../supabase/functions/_shared/groqOrder.ts
 
 const execFileAsync = promisify(execFile);
 const migration = await readFile("supabase/migrations/202608310001_qr_ordering.sql", "utf8");
+const lifecycleMigration = await readFile(
+  "supabase/migrations/202609020002_qr_session_lifecycle.sql",
+  "utf8"
+);
 const config = await readFile("supabase/config.toml", "utf8");
 const mobileView = await readFile("frontend/src/MobileOrderView.jsx", "utf8");
 const ordersStore = await readFile("frontend/src/ordersStore.js", "utf8");
+const appView = await readFile("frontend/src/App.jsx", "utf8");
+const customerQrView = await readFile("frontend/src/CustomerQrOrderView.jsx", "utf8");
+const qrOrderFunction = await readFile("supabase/functions/qr-order/index.ts", "utf8");
 
 test("la migración crea las doce mesas y mantiene 9 a 12 inactivas", () => {
   assert.match(migration, /generate_series\(1, 12\)/);
@@ -27,6 +34,17 @@ test("la base impide dos órdenes abiertas y cierra el QR con el pago", () => {
   assert.match(migration, /alter publication supabase_realtime add table public\.ordenes/);
 });
 
+test("el ciclo QR cierra antes de borrar y limita los borradores vacíos", () => {
+  assert.match(lifecycleMigration, /before delete on public\.ordenes/);
+  assert.match(lifecycleMigration, /now\(\) \+ interval '5 minutes'/);
+  assert.match(lifecycleMigration, /qr_touch_session/);
+  assert.match(lifecycleMigration, /'state', 'stale_session'/);
+  assert.match(lifecycleMigration, /status = 'closed'/);
+  assert.match(lifecycleMigration, /jsonb_array_length\(items\) = 0/);
+  assert.match(qrOrderFunction, /action === "touch"/);
+  assert.match(customerQrView, /qrOrder\("touch", \{ sessionToken \}\)/);
+});
+
 test("los endpoints tienen los permisos esperados", () => {
   assert.match(migration, /grant execute on function public\.qr_start_session\(text, text\) to service_role/);
   assert.match(migration, /grant execute on function public\.complete_table_payment\(jsonb\) to authenticated, service_role/);
@@ -38,6 +56,8 @@ test("el frontend móvil no muestra mesas inactivas y propaga errores al cerrar"
   assert.match(mobileView, /activeTables\.map/);
   assert.match(mobileView, /table\.isActive !== false/);
   assert.match(ordersStore, /throw error/);
+  assert.match(ordersStore, /order\.items\.length === 0[\s\S]*await clearOrder\(tableId\)/);
+  assert.match(appView, /return order\?\.status === "OPEN"/);
 });
 
 test("gaseosa grande siempre conserva Gas Familiar entre los candidatos", () => {

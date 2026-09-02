@@ -12,7 +12,7 @@ const CORS_HEADERS = {
   "Content-Type": "application/json",
 };
 
-const ALLOWED_ACTIONS = new Set(["start", "status", "preview", "submit"]);
+const ALLOWED_ACTIONS = new Set(["start", "status", "touch", "preview", "submit"]);
 
 function reply(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: CORS_HEADERS });
@@ -77,6 +77,14 @@ Deno.serve(async (request) => {
 
     if (action === "status") {
       const { data, error } = await admin.rpc("qr_session_status", {
+        p_session_hash: sessionHash,
+      });
+      if (error) throw error;
+      return reply(data);
+    }
+
+    if (action === "touch") {
+      const { data, error } = await admin.rpc("qr_touch_session", {
         p_session_hash: sessionHash,
       });
       if (error) throw error;

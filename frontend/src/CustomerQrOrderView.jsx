@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { newSecret, qrOrder } from "./qrOrderApi";
 
 const storageKey = (qrToken) => `sabor-latino-qr-session:${qrToken}`;
@@ -43,16 +43,28 @@ const TERMINAL_MESSAGES = {
   expired: "Tu borrador venció. Escanea nuevamente el código QR para empezar un pedido.",
   preview_limit: "Se alcanzó el límite de revisiones para esta sesión. Llama a un mesero para continuar.",
   submitted: "Tu pedido fue enviado correctamente. Para agregar o modificar productos, llama a un mesero.",
+  closed: "La cuenta anterior ya fue cerrada. Puedes comprobar la mesa para iniciar un pedido nuevo.",
 };
 
 export default function CustomerQrOrderView({ qrToken }) {
-  const [sessionToken] = useState(() => loadSessionToken(qrToken));
-  const [idempotencyKey] = useState(() => crypto.randomUUID());
+  const [sessionToken, setSessionToken] = useState(() => loadSessionToken(qrToken));
+  const [idempotencyKey, setIdempotencyKey] = useState(() => crypto.randomUUID());
   const [state, setState] = useState({ phase: "ready" });
   const [started, setStarted] = useState(false);
   const [text, setText] = useState("");
   const [preview, setPreview] = useState(null);
   const [feedback, setFeedback] = useState("");
+
+  const resetForNewSession = useCallback((message = "") => {
+    removeSessionToken(qrToken);
+    setSessionToken(newSecret());
+    setIdempotencyKey(crypto.randomUUID());
+    setStarted(false);
+    setText("");
+    setPreview(null);
+    setFeedback(message);
+    setState({ phase: "ready" });
+  }, [qrToken]);
 
   useEffect(() => {
     if (!started) return undefined;
@@ -62,6 +74,12 @@ export default function CustomerQrOrderView({ qrToken }) {
     void qrOrder("start", { qrToken, sessionToken })
       .then((result) => {
         if (cancelled) return;
+
+        if (result?.state === "stale_session") {
+          removeSessionToken(qrToken);
+          setSessionToken(newSecret());
+          return;
+        }
 
         if (result?.state !== "ok") {
           setState({ phase: result?.state || "invalid" });
@@ -81,6 +99,8 @@ export default function CustomerQrOrderView({ qrToken }) {
             unmatched: restoredUnmatched,
             total: Number(result.draft_total) || 0,
           });
+        } else {
+          setPreview(null);
         }
 
         setState({ phase: "draft", ...result });
@@ -93,6 +113,49 @@ export default function CustomerQrOrderView({ qrToken }) {
       cancelled = true;
     };
   }, [qrToken, sessionToken, started]);
+
+  useEffect(() => {
+    if (!started || state.phase !== "draft" || !state.expires_at) return undefined;
+
+    const expiresAt = Date.parse(state.expires_at);
+    if (!Number.isFinite(expiresAt)) return undefined;
+
+    const timeoutId = window.setTimeout(() => {
+      void qrOrder("status", { sessionToken })
+        .catch(() => null)
+        .finally(() => {
+          resetForNewSession("La sesión anterior venció. Puedes comenzar un pedido nuevo.");
+        });
+    }, Math.max(0, expiresAt - Date.now() + 1000));
+
+    return () => window.clearTimeout(timeoutId);
+  }, [resetForNewSession, sessionToken, started, state.expires_at, state.phase]);
+
+  useEffect(() => {
+    if (!started || state.phase !== "draft" || !text.trim()) return undefined;
+
+    const timeoutId = window.setTimeout(() => {
+      void qrOrder("touch", { sessionToken })
+        .then((result) => {
+          if (result?.state === "ok") {
+            setState((current) => ({
+              ...current,
+              expires_at: result.expires_at || current.expires_at,
+            }));
+            return;
+          }
+
+          if (result?.state === "expired" || result?.state === "closed") {
+            resetForNewSession("La sesión anterior venció. Puedes comenzar un pedido nuevo.");
+          }
+        })
+        .catch(() => {
+          // La próxima acción volverá a comprobar el estado de la sesión.
+        });
+    }, 750);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [resetForNewSession, sessionToken, started, state.phase, text]);
 
   async function review() {
     if (!text.trim() || state.phase !== "draft") return;
@@ -109,12 +172,20 @@ export default function CustomerQrOrderView({ qrToken }) {
         return;
       }
       if (result?.state !== "ok") {
+        if (result?.state === "expired" || result?.state === "closed") {
+          resetForNewSession("La sesión anterior venció. Puedes comenzar un pedido nuevo.");
+          return;
+        }
         setState((current) => ({ ...current, phase: result?.state || "error" }));
         return;
       }
 
       setPreview(result);
-      setState((current) => ({ ...current, phase: "draft" }));
+      setState((current) => ({
+        ...current,
+        phase: "draft",
+        expires_at: result.expires_at || current.expires_at,
+      }));
     } catch (error) {
       setFeedback(error.message);
       setState((current) => ({ ...current, phase: "draft" }));
@@ -153,6 +224,13 @@ export default function CustomerQrOrderView({ qrToken }) {
   }
 
   const terminalMessage = TERMINAL_MESSAGES[state.phase];
+  const canCheckAgain = [
+    "occupied",
+    "draft_elsewhere",
+    "expired",
+    "closed",
+    "submitted",
+  ].includes(state.phase);
 
   return (
     <main className="qrCustomerPage">
@@ -167,11 +245,13 @@ export default function CustomerQrOrderView({ qrToken }) {
           <>
             <h1>Pedido por QR</h1>
             <p>Pulsa el botón para comenzar tu pedido.</p>
+            {feedback && <p className="qrFeedback">{feedback}</p>}
             <button
               type="button"
               className="btnPrimary qrAction"
               onClick={() => {
-                saveSessionToken(qrToken, sessionToken);
+                setFeedback("");
+                setState({ phase: "loading" });
                 setStarted(true);
               }}
             >
@@ -184,6 +264,15 @@ export default function CustomerQrOrderView({ qrToken }) {
           <>
             <h1>{state.phase === "submitted" ? "Pedido enviado" : "Pedido no disponible"}</h1>
             <p>{terminalMessage}</p>
+            {canCheckAgain && (
+              <button
+                type="button"
+                className="btnPrimary qrAction"
+                onClick={() => resetForNewSession()}
+              >
+                Comprobar de nuevo
+              </button>
+            )}
           </>
         ) : state.phase === "error" ? (
           <>
@@ -258,4 +347,3 @@ export default function CustomerQrOrderView({ qrToken }) {
     </main>
   );
 }
-

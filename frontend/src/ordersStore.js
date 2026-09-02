@@ -90,6 +90,11 @@ export async function getOpenOrder(tableId) {
 }
 
 export async function setOpenOrder(tableId, order) {
+  if (!Array.isArray(order.items) || order.items.length === 0) {
+    await clearOrder(tableId);
+    return;
+  }
+
   const { data: existing, error: fetchError } = await supabase
     .from("ordenes")
     .select("id, items")
