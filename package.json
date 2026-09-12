@@ -6,7 +6,8 @@
     "generate:qr": "node scripts/generate-qr-codes.mjs",
     "test:qr": "node --test scripts/qr-order-contract.test.mjs",
     "test:tenancy": "node --test scripts/multitenant-foundation.test.mjs",
-    "test:branding": "node --test scripts/business-branding.test.mjs"
+    "test:branding": "node --test scripts/business-branding.test.mjs",
+    "test:daily-close": "node --test scripts/daily-close.test.mjs"
   },
   "dependencies": {
     "qrcode": "^1.5.4"

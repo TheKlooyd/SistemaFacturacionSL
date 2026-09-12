@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   loadPayments,
   loadDailyClose,
@@ -257,14 +257,38 @@ export default function DailyReport({ onBack }) {
   const [payments, setPayments] = useState([]);
   const [close, setClose] = useState(null);
 
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [errorText, setErrorText] = useState("");
+  const [loadedDate, setLoadedDate] = useState(null);
+  const loadSequence = useRef(0);
+  const savingRef = useRef(false);
+  const ready = !loading && loadedDate === date;
+
   async function reload() {
-    const [all, closeData] = await Promise.all([loadPayments(), loadDailyClose(date)]);
-    setPayments(all);
-    setClose(closeData);
+    const request = ++loadSequence.current;
+    setLoading(true);
+    setErrorText("");
+    try {
+      const [all, closeData] = await Promise.all([
+        loadPayments({ throwOnError: true }), loadDailyClose(date),
+      ]);
+      if (request !== loadSequence.current) return;
+      setPayments(all);
+      setClose(closeData);
+      setLoadedDate(date);
+    } catch {
+      if (request !== loadSequence.current) return;
+      setLoadedDate(null);
+      setErrorText("No fue posible cargar los pagos y el cierre. Pulsa Recargar para reintentar.");
+    } finally {
+      if (request === loadSequence.current) setLoading(false);
+    }
   }
 
   useEffect(() => {
-    reload();
+    void reload();
+    return () => { loadSequence.current += 1; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [date]);
 
@@ -359,6 +383,7 @@ export default function DailyReport({ onBack }) {
   );
 
   function handlePrintClose() {
+    if (!ready || savingRef.current) return;
     // Usa el snapshot solo si coincide con el cálculo actual; así evitamos
     // reimprimir cierres antiguos generados con datos o lógica desactualizada.
     const data = closeForSelectedDate && closeSnapshotIsCurrent
@@ -380,6 +405,7 @@ export default function DailyReport({ onBack }) {
   }
 
   async function handleGenerateClose() {
+    if (!ready || savingRef.current) return;
     if (dayPayments.length === 0) {
       alert("No hay pagos registrados para esta fecha.");
       return;
@@ -399,9 +425,19 @@ export default function DailyReport({ onBack }) {
       createdAt: new Date().toISOString(),
     };
 
-    await saveDailyClose(closeObj);
-    await reload();
-    alert(`✅ Cierre diario generado para ${date}`);
+    savingRef.current = true;
+    setSaving(true);
+    setErrorText("");
+    try {
+      const savedClose = await saveDailyClose(closeObj);
+      setClose(savedClose);
+      alert(`✅ Cierre diario guardado para ${date}`);
+    } catch {
+      setErrorText("No se pudo confirmar el guardado del cierre. Recarga para comprobar su estado antes de reintentar.");
+    } finally {
+      savingRef.current = false;
+      setSaving(false);
+    }
   }
 
   async function handleClearPayments() {
@@ -423,13 +459,16 @@ export default function DailyReport({ onBack }) {
       <div className="topbar">
         <h1>Cierre diario</h1>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-          <button className="btn" onClick={onBack}>Volver</button>
-          <button className="btn" onClick={reload}>Recargar</button>
-          <button className="btn" onClick={handleGenerateClose}>Generar cierre diario</button>
-          <button className="btn" onClick={handlePrintClose}>Imprimir cierre</button>
-          <button className="btn" onClick={handleClearPayments}>Borrar historial de pagos</button>
+          <button className="btn" disabled={saving} onClick={onBack}>Volver</button>
+          <button className="btn" disabled={saving || loading} onClick={reload}>Recargar</button>
+          <button className="btn" disabled={!ready || saving} onClick={handleGenerateClose}>{saving ? "Guardando..." : "Generar cierre diario"}</button>
+          <button className="btn" disabled={!ready || saving} onClick={handlePrintClose}>Imprimir cierre</button>
+          <button className="btn" disabled={!ready || saving} onClick={handleClearPayments}>Borrar historial de pagos</button>
         </div>
       </div>
+
+      {errorText && <div role="alert" className="card" style={{ color: "#970000", padding: 12, marginBottom: 12 }}>{errorText}</div>}
+      {loading && <p role="status">Cargando cierre...</p>}
 
       {/* ── Contenido scrollable ── */}
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column" }}>
@@ -442,6 +481,7 @@ export default function DailyReport({ onBack }) {
             className="input"
             type="date"
             value={date}
+            disabled={saving}
             style={{ margin: 0 }}
             onChange={(e) => setDate(e.target.value)}
           />

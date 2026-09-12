@@ -1,7 +1,7 @@
 import { supabase } from "./supabaseClient";
 import { requireNegocioId } from "./tenantSession";
 
-export async function loadPayments() {
+export async function loadPayments({ throwOnError = false } = {}) {
   const negocioId = requireNegocioId();
 
   const { data, error } = await supabase
@@ -17,6 +17,7 @@ export async function loadPayments() {
       "loadPayments error:",
       error
     );
+    if (throwOnError) throw error;
     return [];
   }
 
@@ -212,33 +213,26 @@ export async function clearPayments() {
   }
 }
 
-export async function saveDailyClose(
-  closeObj
-) {
+export async function saveDailyClose(closeObj) {
   const negocioId = requireNegocioId();
-
-  const { error } = await supabase
-    .from("cierres_diarios")
-    .upsert(
-      {
-        negocio_id: negocioId,
-        date_iso: closeObj.dateISO,
-        data: closeObj,
-        created_at:
-          new Date().toISOString(),
-      },
-      {
-        onConflict:
-          "negocio_id,date_iso",
-      }
-    );
-
-  if (error) {
-    console.error(
-      "saveDailyClose error:",
-      error
-    );
+  const dateISO = String(closeObj?.dateISO || "");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateISO) ||
+      !Number.isFinite(Date.parse(`${dateISO}T00:00:00Z`)) ||
+      new Date(`${dateISO}T00:00:00Z`).toISOString().slice(0, 10) !== dateISO) {
+    throw new Error("Selecciona una fecha válida para el cierre.");
   }
+  const { data, error } = await supabase.from("cierres_diarios")
+    .upsert({
+      negocio_id: negocioId,
+      date_iso: dateISO,
+      data: closeObj,
+      created_at: new Date().toISOString(),
+    }, { onConflict: "negocio_id,date_iso" })
+    .select("data")
+    .single();
+  if (error) throw error;
+  if (!data?.data) throw new Error("No se recibió confirmación del cierre guardado.");
+  return data.data;
 }
 
 export async function loadDailyClose(
@@ -267,9 +261,8 @@ export async function loadDailyClose(
 
   const { data, error } = await query;
 
-  if (error || !data) {
-    return null;
-  }
+  if (error) throw error;
+  if (!data) return null;
 
   return data.data;
 }
