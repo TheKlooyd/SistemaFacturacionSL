@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import "./App.css";
 import { requireNegocioId } from "./tenantSession";
+import { getBusinessBranding } from "./businessBranding";
 import PlatformAdminApp from "./PlatformAdminApp";
 
 import ProductAdmin from "./ProductAdmin";
@@ -53,6 +54,8 @@ function formatElapsedClock(ms) {
 
 export function StaffPosApp() {
   const negocioId = requireNegocioId();
+  const branding = getBusinessBranding();
+  const negocioId = requireNegocioId();
   const [view, setView] = useState("tables");
   const [tables, setTables] = useState([]);
   const [ordersMap, setOrdersMap] = useState({}); // { tableId: orderObj }
@@ -62,6 +65,10 @@ export function StaffPosApp() {
   const [selectedTable, setSelectedTable] = useState(null);
   const [now, setNow] = useState(() => Date.now());
   const [mobileNotifications, setMobileNotifications] = useState([]);
+
+  useEffect(() => {
+  document.title = `${branding.name} · Sistema de Facturación`;
+  }, [branding.name]);
 
   useEffect(() => {
     const intervalId = window.setInterval(() => setNow(Date.now()), 1000);

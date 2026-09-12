@@ -8,7 +8,9 @@ export function getActiveTenant() {
 
 export function requireActiveTenant() {
   if (!activeTenant?.negocio?.id) {
-    throw new Error("No hay un negocio activo en esta sesión.");
+    throw new Error(
+      "No hay un negocio activo en esta sesión."
+    );
   }
 
   return activeTenant;
@@ -28,12 +30,15 @@ export async function resolveTenantForSession(session) {
   const userId = session?.user?.id;
 
   if (!userId) {
-    throw new Error("No hay una sesión válida.");
+    throw new Error(
+      "No hay una sesión válida."
+    );
   }
 
-  // Por ahora el sistema trabaja con un solo establecimiento activo por cuenta.
-  // La BD puede soportar varios en el futuro, pero no necesitamos esa función ahora.
-  const { data: memberships, error: membershipError } = await supabase
+  const {
+    data: memberships,
+    error: membershipError,
+  } = await supabase
     .from("negocio_usuarios")
     .select("negocio_id, rol, is_active")
     .eq("user_id", userId)
@@ -44,7 +49,10 @@ export async function resolveTenantForSession(session) {
     throw membershipError;
   }
 
-  if (!memberships || memberships.length === 0) {
+  if (
+    !memberships ||
+    memberships.length === 0
+  ) {
     throw new Error(
       "Esta cuenta no está vinculada a ningún establecimiento."
     );
@@ -59,28 +67,50 @@ export async function resolveTenantForSession(session) {
   const membership = memberships[0];
 
   const [
-    { data: negocio, error: negocioError },
-    { data: suscripcion, error: suscripcionError },
-    { data: configuracion, error: configuracionError },
+    {
+      data: negocio,
+      error: negocioError,
+    },
+    {
+      data: suscripcion,
+      error: suscripcionError,
+    },
+    {
+      data: configuracion,
+      error: configuracionError,
+    },
   ] = await Promise.all([
     supabase
       .from("negocios")
-      .select("id, slug, nombre, estado")
-      .eq("id", membership.negocio_id)
+      .select(
+        "id, slug, nombre, estado"
+      )
+      .eq(
+        "id",
+        membership.negocio_id
+      )
       .maybeSingle(),
 
     supabase
       .from("suscripciones")
-      .select("negocio_id, plan_code, estado, starts_at, ends_at")
-      .eq("negocio_id", membership.negocio_id)
+      .select(
+        "negocio_id, plan_code, estado, starts_at, ends_at"
+      )
+      .eq(
+        "negocio_id",
+        membership.negocio_id
+      )
       .maybeSingle(),
 
     supabase
       .from("negocio_configuracion")
       .select(
-        "negocio_id, nombre_comercial, logo_url, nit, direccion, telefono, timezone, moneda, reglas_pedidos"
+        "negocio_id, nombre_comercial, logo_url, nit, direccion, telefono, payment_info, timezone, moneda, reglas_pedidos"
       )
-      .eq("negocio_id", membership.negocio_id)
+      .eq(
+        "negocio_id",
+        membership.negocio_id
+      )
       .maybeSingle(),
   ]);
 
@@ -97,7 +127,9 @@ export async function resolveTenantForSession(session) {
   }
 
   if (!negocio) {
-    throw new Error("No se encontró el establecimiento de esta cuenta.");
+    throw new Error(
+      "No se encontró el establecimiento de esta cuenta."
+    );
   }
 
   if (negocio.estado !== "activo") {
@@ -106,7 +138,10 @@ export async function resolveTenantForSession(session) {
     );
   }
 
-  if (!suscripcion || suscripcion.estado !== "activa") {
+  if (
+    !suscripcion ||
+    suscripcion.estado !== "activa"
+  ) {
     throw new Error(
       "La suscripción de este establecimiento no está activa."
     );
@@ -116,7 +151,9 @@ export async function resolveTenantForSession(session) {
 
   if (
     suscripcion.starts_at &&
-    new Date(suscripcion.starts_at).getTime() > now
+    new Date(
+      suscripcion.starts_at
+    ).getTime() > now
   ) {
     throw new Error(
       "La suscripción de este establecimiento todavía no ha comenzado."
@@ -125,7 +162,9 @@ export async function resolveTenantForSession(session) {
 
   if (
     suscripcion.ends_at &&
-    new Date(suscripcion.ends_at).getTime() <= now
+    new Date(
+      suscripcion.ends_at
+    ).getTime() <= now
   ) {
     throw new Error(
       "La suscripción de este establecimiento ha vencido."
