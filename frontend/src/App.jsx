@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import "./App.css";
 import { requireNegocioId } from "./tenantSession";
+import PlatformAdminApp from "./PlatformAdminApp";
 
 import ProductAdmin from "./ProductAdmin";
 import ClientAdmin from "./ClientAdmin";
@@ -544,7 +545,22 @@ export function StaffPosApp() {
 }
 
 export default function App() {
-  const qrToken = new URLSearchParams(window.location.search).get("qr");
+  const params = new URLSearchParams(window.location.search);
+  const qrToken = params.get("qr");
+
+  const normalizedPath = window.location.pathname.replace(/\/+$/, "");
+  const isAdminRoute =
+    normalizedPath.endsWith("/admin")
+    || params.get("admin") === "1"
+    || window.location.hash === "#/admin"
+    || window.location.hash === "#admin";
+
+  if (isAdminRoute) return <PlatformAdminApp />;
   if (qrToken) return <CustomerQrOrderView qrToken={qrToken} />;
-  return <StaffAuthGate><StaffPosApp /></StaffAuthGate>;
+
+  return (
+    <StaffAuthGate>
+      <StaffPosApp />
+    </StaffAuthGate>
+  );
 }
