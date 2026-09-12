@@ -5,7 +5,8 @@ on:
     paths:
       - 'supabase/**'
       - 'supabase_schema.sql'
-      - 'scripts/multitenant-foundation.test.mjs'
+      - 'scripts/*.test.mjs'
+      - 'frontend/**'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/test-tenancy.yml'
@@ -14,7 +15,8 @@ on:
     paths:
       - 'supabase/**'
       - 'supabase_schema.sql'
-      - 'scripts/multitenant-foundation.test.mjs'
+      - 'scripts/*.test.mjs'
+      - 'frontend/**'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/test-tenancy.yml'
@@ -33,3 +35,8 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run test:tenancy
+      - run: npm run test:branding
+      - run: npm run test:qr
+      - run: npm ci --prefix frontend
+      - run: npm run lint --prefix frontend
+      - run: npm run build --prefix frontend

@@ -8,6 +8,7 @@ import {
 } from "./paymentsStore";
 import { openPrintWindow } from "./print";
 import { ticketCierre } from "./printTemplates";
+import { getBusinessBranding } from "./businessBranding";
 
 function formatCOP(value) {
   return new Intl.NumberFormat("es-CO").format(value || 0);
@@ -366,6 +367,7 @@ export default function DailyReport({ onBack }) {
 
     openPrintWindow(
       ticketCierre({
+        branding: getBusinessBranding(),
         dateISO: data.dateISO,
         createdAt: data.createdAt,
         summary: data.summary,

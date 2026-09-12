@@ -13,6 +13,7 @@ import InvoiceAdmin from "./InvoiceAdmin";
 import MobileOrderView from "./MobileOrderView";
 import MobileOrderNotificationStack from "./MobileOrderNotifications";
 import CustomerQrOrderView from "./CustomerQrOrderView";
+import BusinessLogo from "./BusinessLogo";
 import StaffAuthGate from "./StaffAuthGate";
 
 import {
@@ -291,6 +292,7 @@ export function StaffPosApp() {
   ) {
     openPrintWindow(
       ticketComanda({
+        branding,
         tableName:
           notification.tableName,
 
@@ -805,10 +807,10 @@ export function StaffPosApp() {
             minWidth: 0,
           }}
         >
-          <img
+          <BusinessLogo
             src={branding.logoUrl}
             className="topbarLogo"
-            alt={branding.name}
+            name={branding.name}
           />
 
           <div

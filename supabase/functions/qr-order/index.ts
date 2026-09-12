@@ -4,6 +4,7 @@ import {
   parseOrderWithGroq,
 } from "../_shared/groqOrder.ts";
 import { buildSystemPrompt } from "../parse-order/index.ts";
+import { getQrBranding } from "./branding.ts";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -12,7 +13,7 @@ const CORS_HEADERS = {
   "Content-Type": "application/json",
 };
 
-const ALLOWED_ACTIONS = new Set(["start", "status", "touch", "preview", "submit"]);
+const ALLOWED_ACTIONS = new Set(["info", "start", "status", "touch", "preview", "submit"]);
 
 function reply(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: CORS_HEADERS });
@@ -43,12 +44,15 @@ Deno.serve(async (request) => {
   } catch {
     return reply({ error: "Solicitud inválida." }, 400);
   }
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    return reply({ error: "Solicitud inválida." }, 400);
+  }
 
   const action = typeof body.action === "string" ? body.action : "";
   const sessionToken = typeof body.sessionToken === "string" ? body.sessionToken : "";
 
   if (!ALLOWED_ACTIONS.has(action)) return reply({ error: "Solicitud inválida." }, 400);
-  if (!validSecret(sessionToken)) return reply({ error: "Sesión inválida." }, 400);
+  if (action !== "info" && !validSecret(sessionToken)) return reply({ error: "Sesión inválida." }, 400);
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
@@ -63,6 +67,12 @@ Deno.serve(async (request) => {
   const sessionHash = await hash(sessionToken);
 
   try {
+    if (action === "info") {
+      const qrToken = typeof body.qrToken === "string" ? body.qrToken : "";
+      if (!validSecret(qrToken)) return reply({ error: "Código no válido." }, 400);
+      return reply(await getQrBranding(admin, await hash(qrToken)));
+    }
+
     if (action === "start") {
       const qrToken = typeof body.qrToken === "string" ? body.qrToken : "";
       if (!validSecret(qrToken)) return reply({ error: "Código no válido." }, 400);

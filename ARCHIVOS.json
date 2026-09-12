@@ -1,0 +1,95 @@
+{
+  "base_commit": "a682e719a7842f99743ad2b883e823b1c468e231",
+  "branch": "feat/multitenant-foundation",
+  "supabase_qr_order_version": 4,
+  "files": [
+    {
+      "path": ".github/workflows/test-tenancy.yml",
+      "sha256": "2a0ac9b9efb11a3c5b536895fbde1443f9dabd9271eb95f2b6b5fd8f3b6ad4fa"
+    },
+    {
+      "path": "docs/PASO_2B.md",
+      "sha256": "d66d9a7f5ada65f83f605173b331d32867f39bd27139f6091a83613809891fb9"
+    },
+    {
+      "path": "frontend/src/App.jsx",
+      "sha256": "9b50fb36fcc23e0d7228ca1c76832cd4c5d0786475e4414764a3f52dba8d55f0"
+    },
+    {
+      "path": "frontend/src/BusinessLogo.jsx",
+      "sha256": "053904bc34f464eb889fe4db2493971a8e573f2f888c827b5087e7ee81417d37"
+    },
+    {
+      "path": "frontend/src/CustomerQrOrderView.jsx",
+      "sha256": "d6927dff448ff69a1a4ddc91d5554d3cf482e62680a7d8e9caf4be2f56afd604"
+    },
+    {
+      "path": "frontend/src/DailyReport.jsx",
+      "sha256": "5b78603fd177f00180860222b87961d0a643ed93ea2d7ec55bfaff2d786e5f9b"
+    },
+    {
+      "path": "frontend/src/PlatformAdminApp.jsx",
+      "sha256": "ad8f877485f2fc5267b860c6d1d07bfd91bc4f966fde31a5fd51857e6e8ace51"
+    },
+    {
+      "path": "frontend/src/TableOrder.jsx",
+      "sha256": "62cf3965d43fbb601c89d215e7ba7baa7020d2870c141834253f85cc44f2a790"
+    },
+    {
+      "path": "frontend/src/branding.js",
+      "sha256": "3dfd4782d5f7a8f1e4de270249bb77785d68a83060dc79977956890d781df965"
+    },
+    {
+      "path": "frontend/src/businessBranding.js",
+      "sha256": "f9900f3449287ffdc366cb3e1faea1615dfaebb9b498bdb73d3be30e6277c550"
+    },
+    {
+      "path": "frontend/src/print.js",
+      "sha256": "25495cbb2463af50179895139c9adfc73f27a26409f17bcce7920656544c0bdf"
+    },
+    {
+      "path": "frontend/src/printTemplates.js",
+      "sha256": "17b726be0d2b3bfbd39109ac03085394b8b4574dd5384550f48e6296c724e71e"
+    },
+    {
+      "path": "frontend/src/qrSessionStorage.js",
+      "sha256": "2a78d6fe17e49c70b6971848a02e72d28f4379737fd0d70159c42863e1845d2f"
+    },
+    {
+      "path": "package.json",
+      "sha256": "b088fc87a1ef61990602d05af389985ef30a750b6965041ddcd5c30c1b00d8ad"
+    },
+    {
+      "path": "scripts/business-branding.test.mjs",
+      "sha256": "76fb3ace61a1b62988638decf1547b42e8264d93afc34fc786165107914d7369"
+    },
+    {
+      "path": "scripts/qr-order-contract.test.mjs",
+      "sha256": "f5e95b4cb622c34abd801a2a3b18f644f30f0a1a4c4520aa5163a2f57add702c"
+    },
+    {
+      "path": "supabase/functions/qr-order/branding.ts",
+      "sha256": "4c883b42062b0c19715624fce520e83cc148309f669c17d3a9f7fe90856e23ca"
+    },
+    {
+      "path": "supabase/functions/qr-order/index.ts",
+      "sha256": "a9bd4b8995e5f3b8903d4d346eea8ffe7fbf4f1d2aa1c43e1da0e7c104a0dc63"
+    },
+    {
+      "path": "supabase/migrations/20260912223037_legacy_frontend_tenant_defaults.sql",
+      "sha256": "635a859d9ee3690a4b3a236ba0025f700a8bfa73d3e268b5b0d8561278a846cb"
+    },
+    {
+      "path": "supabase/migrations/20260912223059_legacy_frontend_tenant_defaults_uuid_fix.sql",
+      "sha256": "7d56b0b648a85072bbd369f501fc50e42efe2b14a253965273c6bd51053f62c8"
+    },
+    {
+      "path": "supabase/migrations/20260912223226_legacy_uuid_aggregate_rpc_fix.sql",
+      "sha256": "5e606f6b6383eb1d0785e7f7bbe52344315ec09d44e1c76b5d89619ea9964ada"
+    },
+    {
+      "path": "supabase/migrations/20260912223314_temporary_legacy_daily_close_compatibility.sql",
+      "sha256": "f3d5397f11cd00c28faa186d662637314d109e7901eb61961b91dbc3c8e6225c"
+    }
+  ]
+}

@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { newSecret, qrOrder } from "./qrOrderApi";
 
-const storageKey = (qrToken) => `sabor-latino-qr-session:${qrToken}`;
+import BusinessLogo from "./BusinessLogo";
+import { loadSessionToken, saveSessionToken, removeSessionToken } from "./qrSessionStorage.js";
 
 function money(value) {
   return new Intl.NumberFormat("es-CO", {
@@ -9,30 +10,6 @@ function money(value) {
     currency: "COP",
     maximumFractionDigits: 0,
   }).format(value || 0);
-}
-
-function loadSessionToken(qrToken) {
-  try {
-    return localStorage.getItem(storageKey(qrToken)) || newSecret();
-  } catch {
-    return newSecret();
-  }
-}
-
-function saveSessionToken(qrToken, sessionToken) {
-  try {
-    localStorage.setItem(storageKey(qrToken), sessionToken);
-  } catch {
-    // La sesión todavía funciona durante esta pestaña aunque localStorage esté bloqueado.
-  }
-}
-
-function removeSessionToken(qrToken) {
-  try {
-    localStorage.removeItem(storageKey(qrToken));
-  } catch {
-    // No hay nada adicional que limpiar si el navegador bloquea localStorage.
-  }
 }
 
 const TERMINAL_MESSAGES = {
@@ -47,13 +24,34 @@ const TERMINAL_MESSAGES = {
 };
 
 export default function CustomerQrOrderView({ qrToken }) {
-  const [sessionToken, setSessionToken] = useState(() => loadSessionToken(qrToken));
+  // Scanning another QR must discard all in-memory state from the previous table.
+  return <QrOrderSession key={qrToken} qrToken={qrToken} />;
+}
+
+function QrOrderSession({ qrToken }) {
+  const [sessionToken, setSessionToken] = useState(() => loadSessionToken(qrToken, newSecret));
   const [idempotencyKey, setIdempotencyKey] = useState(() => crypto.randomUUID());
   const [state, setState] = useState({ phase: "ready" });
   const [started, setStarted] = useState(false);
   const [text, setText] = useState("");
   const [preview, setPreview] = useState(null);
   const [feedback, setFeedback] = useState("");
+  const [info, setInfo] = useState({ state: "loading" });
+  const [infoAttempt, setInfoAttempt] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    void qrOrder("info", { qrToken }).then((result) => {
+      if (!cancelled) setInfo(result || { state: "invalid" });
+    }).catch(() => {
+      if (!cancelled) setInfo({ state: "error" });
+    });
+    return () => { cancelled = true; };
+  }, [qrToken, infoAttempt]);
+
+  useEffect(() => {
+    document.title = info.branding?.name ? `${info.branding.name} · Pedido por QR` : "Pedido por QR";
+  }, [info.branding?.name]);
 
   const resetForNewSession = useCallback((message = "") => {
     removeSessionToken(qrToken);
@@ -235,13 +233,18 @@ export default function CustomerQrOrderView({ qrToken }) {
   return (
     <main className="qrCustomerPage">
       <section className="qrCustomerPanel">
-        <img
-          src={`${import.meta.env.BASE_URL}saborlatinologo.png`}
-          alt="Sabor Latino"
-          className="qrLogo"
-        />
+        <BusinessLogo src={info.branding?.logoUrl} name={info.branding?.name || "Pedido por QR"} className="qrLogo" />
+        {info.branding?.name && <div style={{ textAlign: "center", fontSize: 22, fontWeight: 800 }}>{info.branding.name}</div>}
 
-        {state.phase === "ready" ? (
+        {info.state === "loading" ? <p>Cargando negocio...</p> : info.state === "error" ? (
+          <>
+            <p>No fue posible cargar este código. Comprueba tu conexión e intenta de nuevo.</p>
+            <button className="btnPrimary qrAction" onClick={() => {
+              setInfo({ state: "loading" });
+              setInfoAttempt((attempt) => attempt + 1);
+            }}>Reintentar</button>
+          </>
+        ) : info.state !== "ok" ? <p>{TERMINAL_MESSAGES[info.state] || TERMINAL_MESSAGES.invalid}</p> : state.phase === "ready" ? (
           <>
             <h1>Pedido por QR</h1>
             <p>Pulsa el botón para comenzar tu pedido.</p>

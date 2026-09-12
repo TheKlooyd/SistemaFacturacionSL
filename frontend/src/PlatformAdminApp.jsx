@@ -467,6 +467,13 @@ function CreateBusinessForm({ onCreated }) {
           </label>
 
           <label style={fieldStyle}>
+            <span>URL del logo</span>
+            <input style={inputStyle} type="url" maxLength={500} value={form.logoUrl}
+              onChange={(e) => setValue("logoUrl", e.target.value)} placeholder="https://..." />
+            <small>Opcional. Sin logo se mostrará el de la plataforma.</small>
+          </label>
+
+          <label style={fieldStyle}>
             <span>NIT</span>
             <input
               style={inputStyle}
@@ -541,6 +548,14 @@ function CreateBusinessForm({ onCreated }) {
             />
           </label>
         </div>
+
+        <label style={fieldStyle}>
+          <span>Instrucciones de pago</span>
+          <textarea style={{ ...inputStyle, minHeight: 80, resize: "vertical" }} maxLength={500}
+            value={form.paymentInfo} onChange={(e) => setValue("paymentInfo", e.target.value)}
+            placeholder="Medio de pago, titular y número de cuenta" />
+          <small>Aparecerán en la cuenta y el comprobante. Déjalo vacío si no aplica.</small>
+        </label>
 
         <label style={fieldStyle}>
           <span>URL base de los QR</span>

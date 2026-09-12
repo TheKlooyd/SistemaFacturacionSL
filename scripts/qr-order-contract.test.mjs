@@ -57,7 +57,7 @@ test("el frontend móvil no muestra mesas inactivas y propaga errores al cerrar"
   assert.match(mobileView, /table\.isActive !== false/);
   assert.match(ordersStore, /throw error/);
   assert.match(ordersStore, /order\.items\.length === 0[\s\S]*await clearOrder\(tableId\)/);
-  assert.match(appView, /return order\?\.status === "OPEN"/);
+  assert.match(appView, /return\s*\(?\s*order\?\.status === "OPEN"/);
 });
 
 test("gaseosa grande siempre conserva Gas Familiar entre los candidatos", () => {

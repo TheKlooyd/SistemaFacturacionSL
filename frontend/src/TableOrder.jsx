@@ -7,6 +7,8 @@ import PayModal from "./PayModal";
 import { completePaymentAndCloseOrder } from "./paymentsStore";
 import { openPrintWindow } from "./print";
 import { ticketComanda, ticketFactura, ticketCuenta } from "./printTemplates";
+import { getBusinessBranding } from "./businessBranding";
+import BusinessLogo from "./BusinessLogo";
 import {
   ActionIconButton,
   BackIcon,
@@ -94,6 +96,7 @@ function withLineIds(items = []) {
 }
 
 export default function TableOrder({ table, onBack, onPaid }) {
+  const branding = getBusinessBranding();
   const [categories, setCategories] = useState([]);
   const [products, setProducts] = useState([]);
   const [selectedCatId, setSelectedCatId] = useState("");
@@ -383,6 +386,7 @@ export default function TableOrder({ table, onBack, onPaid }) {
 
     openPrintWindow(
       ticketComanda({
+        branding,
         tableName: table.name,
         createdAt: new Date().toISOString(),
         items: order.items.map((item) => ({ qty: item.qty, name: item.name, note: item.note || "" })),
@@ -425,7 +429,7 @@ export default function TableOrder({ table, onBack, onPaid }) {
     try {
       openPrintWindow(
         ticketFactura({
-          businessName: "SABOR LATINO",
+          branding,
           tableName: isDelivery ? "DELIVERY" : table.name,
           createdAt: paymentCreatedAt,
           isDelivery,
@@ -863,10 +867,13 @@ export default function TableOrder({ table, onBack, onPaid }) {
           >
             {/* Encabezado restaurante */}
             <div style={{ textAlign: "center", marginBottom: 16 }}>
+              <BusinessLogo src={branding.logoUrl} name={branding.name} style={{ width: 110, height: 80, objectFit: "contain", marginBottom: 8 }} />
               <div style={{ fontWeight: 900, fontSize: 24, letterSpacing: 0.5, textTransform: "uppercase" }}>
-                Sabor Latino
+                {branding.name}
               </div>
-              <div style={{ fontSize: 14, color: "#555", marginTop: 6 }}>Nequi: 317 231 6964</div>
+              {[branding.nit ? `NIT: ${branding.nit}` : "", branding.address, branding.phone, branding.paymentInfo].filter(Boolean).map((value, index) => (
+                <div key={index} style={{ fontSize: 14, color: "#555", marginTop: 6, whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{value}</div>
+              ))}
               <div style={{ fontSize: 14, color: "#555", marginTop: 2 }}>
                 {isDelivery ? "🛵 DELIVERY" : table.name}
               </div>
@@ -965,6 +972,7 @@ export default function TableOrder({ table, onBack, onPaid }) {
                 onClick={() => {
                   openPrintWindow(
                     ticketCuenta({
+                      branding,
                       tableName: table.name,
                       isDelivery,
                       items: order.items.map((it) => ({
