@@ -1,0 +1,35 @@
+name: Test multitenant foundation
+
+on:
+  pull_request:
+    paths:
+      - 'supabase/**'
+      - 'supabase_schema.sql'
+      - 'scripts/multitenant-foundation.test.mjs'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/test-tenancy.yml'
+  push:
+    branches: [main, feat/multitenant-foundation]
+    paths:
+      - 'supabase/**'
+      - 'supabase_schema.sql'
+      - 'scripts/multitenant-foundation.test.mjs'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/test-tenancy.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  database:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run test:tenancy

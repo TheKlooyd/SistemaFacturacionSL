@@ -4,9 +4,13 @@
   "type": "module",
   "scripts": {
     "generate:qr": "node scripts/generate-qr-codes.mjs",
-    "test:qr": "node --test scripts/qr-order-contract.test.mjs"
+    "test:qr": "node --test scripts/qr-order-contract.test.mjs",
+    "test:tenancy": "node --test scripts/multitenant-foundation.test.mjs"
   },
   "dependencies": {
     "qrcode": "^1.5.4"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "0.5.8"
   }
 }

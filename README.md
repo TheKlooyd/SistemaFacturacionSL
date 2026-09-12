@@ -20,3 +20,9 @@ datos se almacenan en Supabase.
 
 El esquema de la base de datos está documentado en `supabase_schema.sql`.
 Los cambios en `main` se publican automáticamente en GitHub Pages.
+
+## Conversión a varios negocios
+
+La primera etapa y sus límites están documentados en [docs/MULTITENANT.md](docs/MULTITENANT.md).
+Las pruebas de permisos de las tablas nuevas se ejecutan desde la raíz con
+`npm ci` y `npm run test:tenancy`.
