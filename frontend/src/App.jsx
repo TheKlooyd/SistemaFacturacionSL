@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import "./App.css";
+
 import { requireNegocioId } from "./tenantSession";
 import { getBusinessBranding } from "./businessBranding";
 import PlatformAdminApp from "./PlatformAdminApp";
@@ -13,6 +14,7 @@ import MobileOrderView from "./MobileOrderView";
 import MobileOrderNotificationStack from "./MobileOrderNotifications";
 import CustomerQrOrderView from "./CustomerQrOrderView";
 import StaffAuthGate from "./StaffAuthGate";
+
 import {
   ActionIconButton,
   ClientsIcon,
@@ -31,153 +33,303 @@ import {
   loadTables,
   MAX_TABLES,
 } from "./tablesStore";
+
 import { getAllOpenOrders } from "./ordersStore";
 import { supabase } from "./supabaseClient";
 import { subscribeToMobileOrders } from "./mobileOrderChannel";
-import { startNotificationSound, stopNotificationSound } from "./notificationSound";
+import {
+  startNotificationSound,
+  stopNotificationSound,
+} from "./notificationSound";
 import { openPrintWindow } from "./print";
 import { ticketComanda } from "./printTemplates";
 
 const BASE = import.meta.env.BASE_URL;
 
 function formatElapsedClock(ms) {
-  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const totalSeconds = Math.max(
+    0,
+    Math.floor(ms / 1000)
+  );
+
+  const hours = Math.floor(
+    totalSeconds / 3600
+  );
+
+  const minutes = Math.floor(
+    (totalSeconds % 3600) / 60
+  );
 
   if (hours > 0) {
-    return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+    return `${String(hours).padStart(
+      2,
+      "0"
+    )}:${String(minutes).padStart(
+      2,
+      "0"
+    )}`;
   }
 
-  return `00:${String(minutes).padStart(2, "0")}`;
+  return `00:${String(minutes).padStart(
+    2,
+    "0"
+  )}`;
 }
 
 export function StaffPosApp() {
   const negocioId = requireNegocioId();
   const branding = getBusinessBranding();
-  const negocioId = requireNegocioId();
+
   const [view, setView] = useState("tables");
   const [tables, setTables] = useState([]);
-  const [ordersMap, setOrdersMap] = useState({}); // { tableId: orderObj }
+  const [ordersMap, setOrdersMap] = useState({});
   const [loading, setLoading] = useState(true);
-  const [isAddingTable, setIsAddingTable] = useState(false);
-  const [deletingTableId, setDeletingTableId] = useState(null);
-  const [selectedTable, setSelectedTable] = useState(null);
-  const [now, setNow] = useState(() => Date.now());
-  const [mobileNotifications, setMobileNotifications] = useState([]);
+
+  const [
+    isAddingTable,
+    setIsAddingTable,
+  ] = useState(false);
+
+  const [
+    deletingTableId,
+    setDeletingTableId,
+  ] = useState(null);
+
+  const [
+    selectedTable,
+    setSelectedTable,
+  ] = useState(null);
+
+  const [now, setNow] = useState(
+    () => Date.now()
+  );
+
+  const [
+    mobileNotifications,
+    setMobileNotifications,
+  ] = useState([]);
 
   useEffect(() => {
-  document.title = `${branding.name} · Sistema de Facturación`;
+    document.title =
+      `${branding.name} · Sistema de Facturación`;
   }, [branding.name]);
 
   useEffect(() => {
-    const intervalId = window.setInterval(() => setNow(Date.now()), 1000);
-    return () => window.clearInterval(intervalId);
+    const intervalId =
+      window.setInterval(
+        () => setNow(Date.now()),
+        1000
+      );
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
   }, []);
 
   useEffect(() => {
-    const unsubscribe = subscribeToMobileOrders((payload) => {
-      setMobileNotifications((current) => [...current, { id: crypto.randomUUID(), ...payload }]);
-    });
+    const unsubscribe =
+      subscribeToMobileOrders(
+        (payload) => {
+          setMobileNotifications(
+            (current) => [
+              ...current,
+              {
+                id: crypto.randomUUID(),
+                ...payload,
+              },
+            ]
+          );
+        }
+      );
+
     return unsubscribe;
   }, []);
 
   useEffect(() => {
     const channel = supabase
-      .channel(`qr-order-persistence:${negocioId}`)
+      .channel(
+        `qr-order-persistence:${negocioId}`
+      )
       .on(
         "postgres_changes",
         {
           event: "INSERT",
           schema: "public",
           table: "ordenes",
-          filter: `negocio_id=eq.${negocioId}`,
+          filter:
+            `negocio_id=eq.${negocioId}`,
         },
         (payload) => {
           const order = payload.new;
 
-          if (String(order.negocio_id) !== String(negocioId)) return;
-          if (order.status !== "OPEN" || order.delivery_client?.source !== "qr") return;
+          if (
+            String(order.negocio_id) !==
+            String(negocioId)
+          ) {
+            return;
+          }
 
-          const tableId = String(order.table_id);
-          const items = order.items || [];
+          if (
+            order.status !== "OPEN" ||
+            order.delivery_client?.source !==
+              "qr"
+          ) {
+            return;
+          }
 
-          setOrdersMap((current) => ({
-            ...current,
-            [tableId]: {
-              id: order.id,
-              items,
-              status: order.status,
-              openedAt: order.opened_at,
-            },
-          }));
+          const tableId = String(
+            order.table_id
+          );
 
-          const table = tables.find((item) => String(item.id) === tableId);
+          const items =
+            order.items || [];
 
-          setMobileNotifications((current) =>
-            current.some((notification) => notification.orderId === order.id)
-              ? current
-              : [
-                  ...current,
-                  {
-                    id: crypto.randomUUID(),
-                    orderId: order.id,
-                    tableId,
-                    tableName: table?.name || `Mesa ${tableId}`,
-                    createdAt: order.opened_at,
-                    items: items.map((item) => ({
-                      qty: item.qty,
-                      name: item.name,
-                      note: item.note || "",
-                    })),
-                  },
-                ]
+          setOrdersMap(
+            (current) => ({
+              ...current,
+              [tableId]: {
+                id: order.id,
+                items,
+                status: order.status,
+                openedAt:
+                  order.opened_at,
+              },
+            })
+          );
+
+          const table =
+            tables.find(
+              (item) =>
+                String(item.id) ===
+                tableId
+            );
+
+          setMobileNotifications(
+            (current) =>
+              current.some(
+                (notification) =>
+                  notification.orderId ===
+                  order.id
+              )
+                ? current
+                : [
+                    ...current,
+                    {
+                      id:
+                        crypto.randomUUID(),
+
+                      orderId:
+                        order.id,
+
+                      tableId,
+
+                      tableName:
+                        table?.name ||
+                        `Mesa ${tableId}`,
+
+                      createdAt:
+                        order.opened_at,
+
+                      items:
+                        items.map(
+                          (item) => ({
+                            qty:
+                              item.qty,
+
+                            name:
+                              item.name,
+
+                            note:
+                              item.note ||
+                              "",
+                          })
+                        ),
+                    },
+                  ]
           );
         }
       )
       .subscribe();
 
     return () => {
-      void supabase.removeChannel(channel);
+      void supabase.removeChannel(
+        channel
+      );
     };
   }, [tables, negocioId]);
 
   useEffect(() => {
-    if (mobileNotifications.length > 0) {
+    if (
+      mobileNotifications.length > 0
+    ) {
       startNotificationSound();
     } else {
       stopNotificationSound();
     }
   }, [mobileNotifications.length]);
 
-  useEffect(() => stopNotificationSound, []);
+  useEffect(() => {
+    return () => {
+      stopNotificationSound();
+    };
+  }, []);
 
-  function dismissMobileNotification(id) {
-    setMobileNotifications((current) => current.filter((n) => n.id !== id));
+  function dismissMobileNotification(
+    id
+  ) {
+    setMobileNotifications(
+      (current) =>
+        current.filter(
+          (notification) =>
+            notification.id !== id
+        )
+    );
   }
 
-  function printMobileNotification(notification) {
+  function printMobileNotification(
+    notification
+  ) {
     openPrintWindow(
       ticketComanda({
-        tableName: notification.tableName,
-        createdAt: notification.createdAt,
-        items: notification.items,
+        tableName:
+          notification.tableName,
+
+        createdAt:
+          notification.createdAt,
+
+        items:
+          notification.items,
       }),
       "comanda"
     );
-    dismissMobileNotification(notification.id);
+
+    dismissMobileNotification(
+      notification.id
+    );
   }
 
   function isTableBusy(tableId) {
-    const order = ordersMap[String(tableId)];
-    return order?.status === "OPEN";
+    const order =
+      ordersMap[String(tableId)];
+
+    return (
+      order?.status === "OPEN"
+    );
   }
 
   async function refreshTables() {
     setLoading(true);
+
     try {
-      const [tbls, orders] = await Promise.all([loadTables(), getAllOpenOrders()]);
-      setTables(tbls);
+      const [
+        loadedTables,
+        orders,
+      ] = await Promise.all([
+        loadTables(),
+        getAllOpenOrders(),
+      ]);
+
+      setTables(loadedTables);
       setOrdersMap(orders);
     } finally {
       setLoading(false);
@@ -189,66 +341,138 @@ export function StaffPosApp() {
     void refreshTables();
   }
 
-  function requireSecurityKey(actionName) {
-    return confirm(`¿Confirmas que deseas ${actionName}?`);
+  function requireSecurityKey(
+    actionName
+  ) {
+    return confirm(
+      `¿Confirmas que deseas ${actionName}?`
+    );
   }
 
   async function handleAddTable() {
-    if (isAddingTable || tables.length >= MAX_TABLES) return;
+    if (
+      isAddingTable ||
+      tables.length >= MAX_TABLES
+    ) {
+      return;
+    }
 
     setIsAddingTable(true);
+
     try {
-      const nextTables = await addTable();
-      if (nextTables.length <= tables.length) {
-        alert("No se pudo agregar otra mesa.");
+      const nextTables =
+        await addTable();
+
+      if (
+        nextTables.length <=
+        tables.length
+      ) {
+        alert(
+          "No se pudo agregar otra mesa."
+        );
+
         return;
       }
+
       setTables(nextTables);
     } finally {
       setIsAddingTable(false);
     }
   }
 
-  async function handleDeleteTable(event, table, busy) {
+  async function handleDeleteTable(
+    event,
+    table,
+    busy
+  ) {
     event.stopPropagation();
 
-    if (deletingTableId === table.id) return;
+    if (
+      deletingTableId ===
+      table.id
+    ) {
+      return;
+    }
 
     if (busy) {
-      alert("No puedes eliminar una mesa que todavía tiene productos facturados o una cuenta abierta.");
+      alert(
+        "No puedes eliminar una mesa que todavía tiene productos facturados o una cuenta abierta."
+      );
+
       return;
     }
 
     if (tables.length <= 1) {
-      alert("Debe quedar por lo menos una mesa registrada.");
+      alert(
+        "Debe quedar por lo menos una mesa registrada."
+      );
+
       return;
     }
 
-    if (!confirm(`¿Eliminar ${table.name}? Esta acción quitará la mesa del sistema.`)) {
+    if (
+      !confirm(
+        `¿Eliminar ${table.name}? Esta acción quitará la mesa del sistema.`
+      )
+    ) {
       return;
     }
 
-    if (!requireSecurityKey(`eliminar ${table.name}`)) {
+    if (
+      !requireSecurityKey(
+        `eliminar ${table.name}`
+      )
+    ) {
       return;
     }
 
     setDeletingTableId(table.id);
+
     try {
-      const nextTables = await deleteTable(table.id);
-      const wasDeleted = !nextTables.some((nextTable) => nextTable.id === Number(table.id));
+      const nextTables =
+        await deleteTable(
+          table.id
+        );
+
+      const wasDeleted =
+        !nextTables.some(
+          (nextTable) =>
+            nextTable.id ===
+            Number(table.id)
+        );
 
       if (!wasDeleted) {
-        alert("No se pudo eliminar la mesa.");
+        alert(
+          "No se pudo eliminar la mesa."
+        );
+
         return;
       }
 
       setTables(nextTables);
-      setOrdersMap((current) => {
-        if (!(String(table.id) in current)) return current;
-        const next = { ...current };
-        delete next[String(table.id)];
-        return next;
-      });
+
+      setOrdersMap(
+        (current) => {
+          if (
+            !(
+              String(table.id) in
+              current
+            )
+          ) {
+            return current;
+          }
+
+          const next = {
+            ...current,
+          };
+
+          delete next[
+            String(table.id)
+          ];
+
+          return next;
+        }
+      );
     } finally {
       setDeletingTableId(null);
     }
@@ -259,12 +483,24 @@ export function StaffPosApp() {
 
     void (async () => {
       try {
-        const [tbls, orders] = await Promise.all([loadTables(), getAllOpenOrders()]);
-        if (cancelled) return;
-        setTables(tbls);
+        const [
+          loadedTables,
+          orders,
+        ] = await Promise.all([
+          loadTables(),
+          getAllOpenOrders(),
+        ]);
+
+        if (cancelled) {
+          return;
+        }
+
+        setTables(loadedTables);
         setOrdersMap(orders);
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     })();
 
@@ -273,15 +509,23 @@ export function StaffPosApp() {
     };
   }, []);
 
-  // Vistas condicionales (después de hooks)
   if (view === "products") {
     return (
       <div className="page">
-        <ProductAdmin onBack={showTables} />
+        <ProductAdmin
+          onBack={showTables}
+        />
+
         <MobileOrderNotificationStack
-          notifications={mobileNotifications}
-          onDismiss={dismissMobileNotification}
-          onPrint={printMobileNotification}
+          notifications={
+            mobileNotifications
+          }
+          onDismiss={
+            dismissMobileNotification
+          }
+          onPrint={
+            printMobileNotification
+          }
         />
       </div>
     );
@@ -290,11 +534,20 @@ export function StaffPosApp() {
   if (view === "clients") {
     return (
       <div className="page">
-        <ClientAdmin onBack={showTables} />
+        <ClientAdmin
+          onBack={showTables}
+        />
+
         <MobileOrderNotificationStack
-          notifications={mobileNotifications}
-          onDismiss={dismissMobileNotification}
-          onPrint={printMobileNotification}
+          notifications={
+            mobileNotifications
+          }
+          onDismiss={
+            dismissMobileNotification
+          }
+          onPrint={
+            printMobileNotification
+          }
         />
       </div>
     );
@@ -303,11 +556,20 @@ export function StaffPosApp() {
   if (view === "report") {
     return (
       <div className="page">
-        <DailyReport onBack={showTables} />
+        <DailyReport
+          onBack={showTables}
+        />
+
         <MobileOrderNotificationStack
-          notifications={mobileNotifications}
-          onDismiss={dismissMobileNotification}
-          onPrint={printMobileNotification}
+          notifications={
+            mobileNotifications
+          }
+          onDismiss={
+            dismissMobileNotification
+          }
+          onPrint={
+            printMobileNotification
+          }
         />
       </div>
     );
@@ -316,11 +578,20 @@ export function StaffPosApp() {
   if (view === "invoices") {
     return (
       <div className="page">
-        <InvoiceAdmin onBack={showTables} />
+        <InvoiceAdmin
+          onBack={showTables}
+        />
+
         <MobileOrderNotificationStack
-          notifications={mobileNotifications}
-          onDismiss={dismissMobileNotification}
-          onPrint={printMobileNotification}
+          notifications={
+            mobileNotifications
+          }
+          onDismiss={
+            dismissMobileNotification
+          }
+          onPrint={
+            printMobileNotification
+          }
         />
       </div>
     );
@@ -329,17 +600,29 @@ export function StaffPosApp() {
   if (view === "mobile") {
     return (
       <div className="page">
-        <MobileOrderView onBack={showTables} />
+        <MobileOrderView
+          onBack={showTables}
+        />
+
         <MobileOrderNotificationStack
-          notifications={mobileNotifications}
-          onDismiss={dismissMobileNotification}
-          onPrint={printMobileNotification}
+          notifications={
+            mobileNotifications
+          }
+          onDismiss={
+            dismissMobileNotification
+          }
+          onPrint={
+            printMobileNotification
+          }
         />
       </div>
     );
   }
 
-  if (view === "order" && selectedTable) {
+  if (
+    view === "order" &&
+    selectedTable
+  ) {
     return (
       <div className="page">
         <TableOrder
@@ -347,223 +630,481 @@ export function StaffPosApp() {
           onBack={showTables}
           onPaid={showTables}
         />
+
         <MobileOrderNotificationStack
-          notifications={mobileNotifications}
-          onDismiss={dismissMobileNotification}
-          onPrint={printMobileNotification}
+          notifications={
+            mobileNotifications
+          }
+          onDismiss={
+            dismissMobileNotification
+          }
+          onPrint={
+            printMobileNotification
+          }
         />
       </div>
     );
   }
 
-  // Vista Mesas
   const homeActions = [
     {
       key: "products",
       label: "Productos",
-      title: "Admin productos",
-      onClick: () => setView("products"),
+      title:
+        "Admin productos",
+
+      onClick: () =>
+        setView("products"),
+
       tone: {
-        tint: "rgba(254,174,13,.20)",
-        border: "rgba(254,174,13,.42)",
-        glow: "rgba(254,174,13,.20)",
+        tint:
+          "rgba(254,174,13,.20)",
+
+        border:
+          "rgba(254,174,13,.42)",
+
+        glow:
+          "rgba(254,174,13,.20)",
       },
+
       icon: <ProductsIcon />,
     },
+
     {
       key: "clients",
       label: "Clientes",
-      title: "Admin clientes",
-      onClick: () => setView("clients"),
+      title:
+        "Admin clientes",
+
+      onClick: () =>
+        setView("clients"),
+
       tone: {
-        tint: "rgba(176,83,40,.18)",
-        border: "rgba(176,83,40,.36)",
-        glow: "rgba(176,83,40,.18)",
+        tint:
+          "rgba(176,83,40,.18)",
+
+        border:
+          "rgba(176,83,40,.36)",
+
+        glow:
+          "rgba(176,83,40,.18)",
       },
+
       icon: <ClientsIcon />,
     },
+
     {
       key: "refresh",
       label: "Refrescar",
-      title: "Refrescar mesas",
-      onClick: refreshTables,
+      title:
+        "Refrescar mesas",
+
+      onClick:
+        refreshTables,
+
       tone: {
-        tint: "rgba(26,8,0,.08)",
-        border: "rgba(26,8,0,.16)",
-        glow: "rgba(26,8,0,.12)",
+        tint:
+          "rgba(26,8,0,.08)",
+
+        border:
+          "rgba(26,8,0,.16)",
+
+        glow:
+          "rgba(26,8,0,.12)",
       },
+
       icon: <RefreshIcon />,
     },
+
     {
       key: "invoices",
       label: "Facturas",
-      title: "Admin facturas",
-      onClick: () => setView("invoices"),
+      title:
+        "Admin facturas",
+
+      onClick: () =>
+        setView("invoices"),
+
       tone: {
-        tint: "rgba(205,5,8,.14)",
-        border: "rgba(205,5,8,.30)",
-        glow: "rgba(205,5,8,.16)",
+        tint:
+          "rgba(205,5,8,.14)",
+
+        border:
+          "rgba(205,5,8,.30)",
+
+        glow:
+          "rgba(205,5,8,.16)",
       },
+
       icon: <InvoicesIcon />,
     },
+
     {
       key: "mobile",
       label: "Móvil",
-      title: "Tomar pedido desde el móvil",
-      onClick: () => setView("mobile"),
+      title:
+        "Tomar pedido desde el móvil",
+
+      onClick: () =>
+        setView("mobile"),
+
       tone: {
-        tint: "rgba(26,8,0,.10)",
-        border: "rgba(26,8,0,.22)",
-        glow: "rgba(26,8,0,.14)",
+        tint:
+          "rgba(26,8,0,.10)",
+
+        border:
+          "rgba(26,8,0,.22)",
+
+        glow:
+          "rgba(26,8,0,.14)",
       },
+
       icon: <MobileIcon />,
     },
+
     {
       key: "report",
       label: "Cierre",
-      title: "Cierre diario",
-      onClick: () => setView("report"),
+      title:
+        "Cierre diario",
+
+      onClick: () =>
+        setView("report"),
+
       tone: {
-        tint: "rgba(176,83,40,.16)",
-        border: "rgba(176,83,40,.34)",
-        glow: "rgba(176,83,40,.16)",
+        tint:
+          "rgba(176,83,40,.16)",
+
+        border:
+          "rgba(176,83,40,.34)",
+
+        glow:
+          "rgba(176,83,40,.16)",
       },
+
       icon: <ReportIcon />,
     },
   ];
 
-  const canAddTable = tables.length < MAX_TABLES;
-  const nextTableNumber = getNextAvailableTableNumber(tables);
+  const canAddTable =
+    tables.length < MAX_TABLES;
+
+  const nextTableNumber =
+    getNextAvailableTableNumber(
+      tables
+    );
 
   return (
     <div className="page">
       <header className="topbar">
-        <img src={`${BASE}saborlatinologo.png`} className="topbarLogo" alt="Sabor Latino" />
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+            minWidth: 0,
+          }}
+        >
+          <img
+            src={branding.logoUrl}
+            className="topbarLogo"
+            alt={branding.name}
+          />
 
-        <div className="topbarActions homeActionButtons">
-          {homeActions.map((action) => (
-            <ActionIconButton
-              key={action.key}
-              label={action.label}
-              title={action.title}
-              onClick={action.onClick}
-              tone={action.tone}
-            >
-              {action.icon}
-            </ActionIconButton>
-          ))}
+          <div
+            style={{
+              fontWeight: 900,
+              fontSize: 20,
+              lineHeight: 1.05,
+              overflow: "hidden",
+              textOverflow:
+                "ellipsis",
+              whiteSpace:
+                "nowrap",
+              maxWidth: 260,
+            }}
+            title={branding.name}
+          >
+            {branding.name}
+          </div>
+        </div>
+
+        <div
+          className="topbarActions homeActionButtons"
+        >
+          {homeActions.map(
+            (action) => (
+              <ActionIconButton
+                key={action.key}
+                label={
+                  action.label
+                }
+                title={
+                  action.title
+                }
+                onClick={
+                  action.onClick
+                }
+                tone={
+                  action.tone
+                }
+              >
+                {action.icon}
+              </ActionIconButton>
+            )
+          )}
         </div>
       </header>
 
       {loading ? (
-        <p>Cargando mesas...</p>
+        <p>
+          Cargando mesas...
+        </p>
       ) : (
         <div className="tablesViewport">
           <div className="grid">
-            {tables.filter((table) => table.isActive !== false).map((t) => {
-              const busy = isTableBusy(t.id);
-              const isDeleting = deletingTableId === t.id;
-              const openOrder = ordersMap[String(t.id)] || null;
-              const waitMs = openOrder?.openedAt
-                ? Math.max(0, now - new Date(openOrder.openedAt).getTime())
-                : 0;
+            {tables
+              .filter(
+                (table) =>
+                  table.isActive !==
+                  false
+              )
+              .map((table) => {
+                const busy =
+                  isTableBusy(
+                    table.id
+                  );
 
-              return (
-                <div key={t.id} className="tableCardShell">
-                  <button
-                    type="button"
-                    className={`tableCard ${busy ? "busy" : "free"}`}
-                    onClick={() => {
-                      setSelectedTable(t);
-                      setView("order");
-                    }}
-                    title="Click para abrir cuenta"
+                const isDeleting =
+                  deletingTableId ===
+                  table.id;
+
+                const openOrder =
+                  ordersMap[
+                    String(
+                      table.id
+                    )
+                  ] || null;
+
+                const waitMs =
+                  openOrder?.openedAt
+                    ? Math.max(
+                        0,
+                        now -
+                          new Date(
+                            openOrder.openedAt
+                          ).getTime()
+                      )
+                    : 0;
+
+                return (
+                  <div
+                    key={table.id}
+                    className="tableCardShell"
                   >
-                    <img src={`${BASE}MesaIcono.png`} className="tableIcon" alt="mesa" />
-                    <div className="tableName">{t.name}</div>
-                    <div className="tableStatus">{busy ? "Ocupada" : "Libre"}</div>
-                    {busy && openOrder?.openedAt && (
-                      <div className="tableTimer">
-                        <ClockIcon style={{ width: 14, height: 14 }} />
-                        {formatElapsedClock(waitMs)}
+                    <button
+                      type="button"
+                      className={`tableCard ${
+                        busy
+                          ? "busy"
+                          : "free"
+                      }`}
+                      onClick={() => {
+                        setSelectedTable(
+                          table
+                        );
+
+                        setView(
+                          "order"
+                        );
+                      }}
+                      title="Click para abrir cuenta"
+                    >
+                      <img
+                        src={`${BASE}MesaIcono.png`}
+                        className="tableIcon"
+                        alt="mesa"
+                      />
+
+                      <div className="tableName">
+                        {table.name}
                       </div>
-                    )}
-                  </button>
 
-                  <button
-                    type="button"
-                    className={`tableDeleteButton ${busy ? "blocked" : ""}`}
-                    onClick={(event) => void handleDeleteTable(event, t, busy)}
-                    title={
-                      busy
-                        ? `${t.name} tiene productos; no se puede eliminar todavía`
-                        : isDeleting
-                          ? `Eliminando ${t.name}`
-                          : `Eliminar ${t.name}`
-                    }
-                    aria-label={
-                      busy
-                        ? `${t.name} tiene productos; no se puede eliminar todavía`
-                        : isDeleting
-                          ? `Eliminando ${t.name}`
-                          : `Eliminar ${t.name}`
-                    }
+                      <div className="tableStatus">
+                        {busy
+                          ? "Ocupada"
+                          : "Libre"}
+                      </div>
+
+                      {busy &&
+                        openOrder?.openedAt && (
+                          <div className="tableTimer">
+                            <ClockIcon
+                              style={{
+                                width: 14,
+                                height: 14,
+                              }}
+                            />
+
+                            {formatElapsedClock(
+                              waitMs
+                            )}
+                          </div>
+                        )}
+                    </button>
+
+                    <button
+                      type="button"
+                      className={`tableDeleteButton ${
+                        busy
+                          ? "blocked"
+                          : ""
+                      }`}
+                      onClick={(
+                        event
+                      ) =>
+                        void handleDeleteTable(
+                          event,
+                          table,
+                          busy
+                        )
+                      }
+                      title={
+                        busy
+                          ? `${table.name} tiene productos; no se puede eliminar todavía`
+                          : isDeleting
+                            ? `Eliminando ${table.name}`
+                            : `Eliminar ${table.name}`
+                      }
+                      aria-label={
+                        busy
+                          ? `${table.name} tiene productos; no se puede eliminar todavía`
+                          : isDeleting
+                            ? `Eliminando ${table.name}`
+                            : `Eliminar ${table.name}`
+                      }
+                    >
+                      {isDeleting
+                        ? "..."
+                        : "×"}
+                    </button>
+                  </div>
+                );
+              })}
+
+            {canAddTable &&
+              nextTableNumber && (
+                <button
+                  type="button"
+                  className="tableCard tableCardGhost"
+                  onClick={
+                    handleAddTable
+                  }
+                  title={
+                    isAddingTable
+                      ? "Agregando mesa..."
+                      : `Agregar Mesa ${nextTableNumber}`
+                  }
+                  aria-label={
+                    isAddingTable
+                      ? "Agregando mesa"
+                      : `Agregar Mesa ${nextTableNumber}`
+                  }
+                  disabled={
+                    isAddingTable
+                  }
+                >
+                  <span
+                    className="tableIconWrap"
+                    aria-hidden="true"
                   >
-                    {isDeleting ? "..." : "×"}
-                  </button>
-                </div>
-              );
-            })}
+                    <img
+                      src={`${BASE}MesaIcono.png`}
+                      className="tableIcon"
+                      alt=""
+                    />
 
-            {canAddTable && nextTableNumber && (
-              <button
-                type="button"
-                className="tableCard tableCardGhost"
-                onClick={handleAddTable}
-                title={isAddingTable ? "Agregando mesa..." : `Agregar Mesa ${nextTableNumber}`}
-                aria-label={isAddingTable ? "Agregando mesa" : `Agregar Mesa ${nextTableNumber}`}
-                disabled={isAddingTable}
-              >
-                <span className="tableIconWrap" aria-hidden="true">
-                  <img src={`${BASE}MesaIcono.png`} className="tableIcon" alt="" />
-                  <span className="tableGhostPlus">+</span>
-                </span>
-                <div className="tableName">Mesa {nextTableNumber}</div>
-                <div className="tableStatus">
-                  {isAddingTable ? "Creando mesa..." : `Agregar mesa · Máx. ${MAX_TABLES}`}
-                </div>
-              </button>
-            )}
+                    <span className="tableGhostPlus">
+                      +
+                    </span>
+                  </span>
+
+                  <div className="tableName">
+                    Mesa{" "}
+                    {nextTableNumber}
+                  </div>
+
+                  <div className="tableStatus">
+                    {isAddingTable
+                      ? "Creando mesa..."
+                      : `Agregar mesa · Máx. ${MAX_TABLES}`}
+                  </div>
+                </button>
+              )}
           </div>
         </div>
       )}
 
       <footer className="footer">
-        Tip: click en una mesa para abrir la cuenta, usa la tarjeta + para agregar o la X para eliminar mesas vacías.
+        Tip: click en una mesa
+        para abrir la cuenta,
+        usa la tarjeta + para
+        agregar o la X para
+        eliminar mesas vacías.
       </footer>
 
       <MobileOrderNotificationStack
-        notifications={mobileNotifications}
-        onDismiss={dismissMobileNotification}
-        onPrint={printMobileNotification}
+        notifications={
+          mobileNotifications
+        }
+        onDismiss={
+          dismissMobileNotification
+        }
+        onPrint={
+          printMobileNotification
+        }
       />
     </div>
   );
 }
 
 export default function App() {
-  const params = new URLSearchParams(window.location.search);
-  const qrToken = params.get("qr");
+  const params =
+    new URLSearchParams(
+      window.location.search
+    );
 
-  const normalizedPath = window.location.pathname.replace(/\/+$/, "");
+  const qrToken =
+    params.get("qr");
+
+  const normalizedPath =
+    window.location.pathname.replace(
+      /\/+$/,
+      ""
+    );
+
   const isAdminRoute =
-    normalizedPath.endsWith("/admin")
-    || params.get("admin") === "1"
-    || window.location.hash === "#/admin"
-    || window.location.hash === "#admin";
+    normalizedPath.endsWith(
+      "/admin"
+    ) ||
+    params.get("admin") ===
+      "1" ||
+    window.location.hash ===
+      "#/admin" ||
+    window.location.hash ===
+      "#admin";
 
-  if (isAdminRoute) return <PlatformAdminApp />;
-  if (qrToken) return <CustomerQrOrderView qrToken={qrToken} />;
+  if (isAdminRoute) {
+    return <PlatformAdminApp />;
+  }
+
+  if (qrToken) {
+    return (
+      <CustomerQrOrderView
+        qrToken={qrToken}
+      />
+    );
+  }
 
   return (
     <StaffAuthGate>
