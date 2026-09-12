@@ -103,9 +103,13 @@ Deno.serve(async (request) => {
       if (claimError) throw claimError;
       if (claim?.state !== "ok") return reply(claim || { state: "invalid" });
 
+      const negocioId = typeof claim?.negocio_id === "string" ? claim.negocio_id : "";
+      if (!negocioId) return reply({ state: "invalid" }, 409);
+
       const { data: products, error: productsError } = await admin
         .from("productos")
-        .select("id,name,price");
+        .select("id,name,price,size")
+        .eq("negocio_id", negocioId);
       if (productsError) throw productsError;
 
       const availableProducts = products || [];
@@ -131,10 +135,12 @@ Deno.serve(async (request) => {
           note: line.note,
         }];
       });
+
       const unmatched = aiLines
         .filter((line) => !line.product_id)
         .map((line) => line.unmatched_name)
         .filter((name): name is string => Boolean(name));
+
       const total = items.reduce(
         (sum, item) => sum + item.unit_price * item.qty,
         0

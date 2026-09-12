@@ -1,35 +1,44 @@
 import { supabase } from "./supabaseClient";
+import { requireNegocioId } from "./tenantSession";
 
 const DEFAULT_TABLE_COUNT = 12;
+
 export const MAX_TABLES = 12;
 
-const DEFAULT_TABLES = Array.from({ length: DEFAULT_TABLE_COUNT }, (_, i) => ({
-  id: i + 1,
-  name: `Mesa ${i + 1}`,
-  status: "FREE",
-  isActive: i < 8,
-}));
-
 function normalizeTable(row) {
+  const numero = Number(row.numero ?? row.id);
+
   return {
     id: Number(row.id),
-    name: row.name || `Mesa ${row.id}`,
+    numero,
+    name: row.name || `Mesa ${numero}`,
     status: row.status || "FREE",
     isActive: row.is_active !== false,
   };
 }
 
 function getTableNumber(table) {
-  const numericId = Number(table.id) || 0;
-  const nameMatch = /(\d+)\s*$/.exec(String(table.name || ""));
-  const numericName = nameMatch ? Number(nameMatch[1]) : 0;
-  return Math.max(numericId, numericName);
+  if (Number(table.numero) > 0) {
+    return Number(table.numero);
+  }
+
+  const nameMatch = /(\d+)\s*$/.exec(
+    String(table.name || "")
+  );
+
+  return nameMatch ? Number(nameMatch[1]) : 0;
 }
 
 export function getNextAvailableTableNumber(tables) {
-  const usedNumbers = new Set(tables.map(getTableNumber).filter(Boolean));
+  const usedNumbers = new Set(
+    tables.map(getTableNumber).filter(Boolean)
+  );
 
-  for (let number = 1; number <= MAX_TABLES; number += 1) {
+  for (
+    let number = 1;
+    number <= MAX_TABLES;
+    number += 1
+  ) {
     if (!usedNumbers.has(number)) {
       return number;
     }
@@ -39,10 +48,13 @@ export function getNextAvailableTableNumber(tables) {
 }
 
 async function fetchTables() {
+  const negocioId = requireNegocioId();
+
   const { data, error } = await supabase
     .from("mesas")
     .select("*")
-    .order("id");
+    .eq("negocio_id", negocioId)
+    .order("numero");
 
   if (error) {
     console.error("loadTables error:", error);
@@ -53,9 +65,26 @@ async function fetchTables() {
 }
 
 async function seedDefaultTables() {
-  const { error } = await supabase.from("mesas").insert(
-    DEFAULT_TABLES.map(({ id, name, status, isActive }) => ({ id, name, status, is_active: isActive }))
+  const negocioId = requireNegocioId();
+
+  const rows = Array.from(
+    { length: DEFAULT_TABLE_COUNT },
+    (_, index) => {
+      const numero = index + 1;
+
+      return {
+        negocio_id: negocioId,
+        numero,
+        name: `Mesa ${numero}`,
+        status: "FREE",
+        is_active: true,
+      };
+    }
   );
+
+  const { error } = await supabase
+    .from("mesas")
+    .insert(rows);
 
   if (error) {
     console.error("seedDefaultTables error:", error);
@@ -69,7 +98,7 @@ export async function loadTables() {
   const tables = await fetchTables();
 
   if (!tables) {
-    return DEFAULT_TABLES;
+    return [];
   }
 
   if (tables.length > 0) {
@@ -77,32 +106,40 @@ export async function loadTables() {
   }
 
   const seeded = await seedDefaultTables();
+
   if (!seeded) {
-    return DEFAULT_TABLES;
+    return [];
   }
 
   const seededTables = await fetchTables();
-  return seededTables && seededTables.length > 0 ? seededTables : DEFAULT_TABLES;
+
+  return seededTables || [];
 }
 
 export async function addTable() {
+  const negocioId = requireNegocioId();
   const tables = await loadTables();
 
   if (tables.length >= MAX_TABLES) {
     return tables;
   }
 
-  const nextNumber = getNextAvailableTableNumber(tables);
+  const nextNumber =
+    getNextAvailableTableNumber(tables);
+
   if (!nextNumber) {
     return tables;
   }
 
-  const { error } = await supabase.from("mesas").insert({
-    id: nextNumber,
-    name: `Mesa ${nextNumber}`,
-    status: "FREE",
-    is_active: nextNumber <= 8,
-  });
+  const { error } = await supabase
+    .from("mesas")
+    .insert({
+      negocio_id: negocioId,
+      numero: nextNumber,
+      name: `Mesa ${nextNumber}`,
+      status: "FREE",
+      is_active: true,
+    });
 
   if (error) {
     console.error("addTable error:", error);
@@ -113,6 +150,7 @@ export async function addTable() {
 }
 
 export async function deleteTable(tableId) {
+  const negocioId = requireNegocioId();
   const tables = await loadTables();
 
   if (tables.length <= 1) {
@@ -122,7 +160,8 @@ export async function deleteTable(tableId) {
   const { error } = await supabase
     .from("mesas")
     .delete()
-    .eq("id", Number(tableId));
+    .eq("id", Number(tableId))
+    .eq("negocio_id", negocioId);
 
   if (error) {
     console.error("deleteTable error:", error);

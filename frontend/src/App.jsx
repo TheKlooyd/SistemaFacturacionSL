@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import "./App.css";
+import { requireNegocioId } from "./tenantSession";
 
 import ProductAdmin from "./ProductAdmin";
 import ClientAdmin from "./ClientAdmin";
@@ -50,6 +51,7 @@ function formatElapsedClock(ms) {
 }
 
 export function StaffPosApp() {
+  const negocioId = requireNegocioId();
   const [view, setView] = useState("tables");
   const [tables, setTables] = useState([]);
   const [ordersMap, setOrdersMap] = useState({}); // { tableId: orderObj }
@@ -74,19 +76,63 @@ export function StaffPosApp() {
 
   useEffect(() => {
     const channel = supabase
-      .channel("qr-order-persistence")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "ordenes" }, (payload) => {
-        const order = payload.new;
-        if (order.status !== "OPEN" || order.delivery_client?.source !== "qr") return;
-        const tableId = String(order.table_id);
-        const items = order.items || [];
-        setOrdersMap((current) => ({ ...current, [tableId]: { id: order.id, items, status: order.status, openedAt: order.opened_at } }));
-        const table = tables.find((item) => String(item.id) === tableId);
-        setMobileNotifications((current) => current.some((notification) => notification.orderId === order.id) ? current : [...current, { id: crypto.randomUUID(), orderId: order.id, tableId, tableName: table?.name || `Mesa ${tableId}`, createdAt: order.opened_at, items: items.map((item) => ({ qty: item.qty, name: item.name, note: item.note || "" })) }]);
-      })
+      .channel(`qr-order-persistence:${negocioId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "ordenes",
+          filter: `negocio_id=eq.${negocioId}`,
+        },
+        (payload) => {
+          const order = payload.new;
+
+          if (String(order.negocio_id) !== String(negocioId)) return;
+          if (order.status !== "OPEN" || order.delivery_client?.source !== "qr") return;
+
+          const tableId = String(order.table_id);
+          const items = order.items || [];
+
+          setOrdersMap((current) => ({
+            ...current,
+            [tableId]: {
+              id: order.id,
+              items,
+              status: order.status,
+              openedAt: order.opened_at,
+            },
+          }));
+
+          const table = tables.find((item) => String(item.id) === tableId);
+
+          setMobileNotifications((current) =>
+            current.some((notification) => notification.orderId === order.id)
+              ? current
+              : [
+                  ...current,
+                  {
+                    id: crypto.randomUUID(),
+                    orderId: order.id,
+                    tableId,
+                    tableName: table?.name || `Mesa ${tableId}`,
+                    createdAt: order.opened_at,
+                    items: items.map((item) => ({
+                      qty: item.qty,
+                      name: item.name,
+                      note: item.note || "",
+                    })),
+                  },
+                ]
+          );
+        }
+      )
       .subscribe();
-    return () => { void supabase.removeChannel(channel); };
-  }, [tables]);
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [tables, negocioId]);
 
   useEffect(() => {
     if (mobileNotifications.length > 0) {
