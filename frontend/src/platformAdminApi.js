@@ -6,7 +6,9 @@ export async function callPlatformAdmin(action, payload = {}) {
   });
 
   if (error) {
-    throw new Error(error.message || "No fue posible contactar la administración.");
+    let message = error.message || "No fue posible contactar la administración.";
+    try { const payload = await error.context?.clone?.().json(); if (payload?.error) message = payload.error; } catch { /* Non-JSON gateway response. */ }
+    throw new Error(message);
   }
 
   if (!data?.ok) {
@@ -35,4 +37,11 @@ export async function setPlatformBusinessAccess(businessId, active) {
 
 export async function resetPlatformOwnerPassword(businessId, password) {
   return callPlatformAdmin("reset_owner_password", { businessId, password });
+}
+
+export function updatePlatformBusiness(businessId, config) {
+  return callPlatformAdmin("update_business", { businessId, config });
+}
+export function verifyQrManifest(businessId, codes) {
+  return callPlatformAdmin("verify_qr_manifest", { businessId, codes });
 }

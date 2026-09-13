@@ -3,7 +3,7 @@ import {
   MAX_ORDER_TEXT_LENGTH,
   parseOrderWithGroq,
 } from "../_shared/groqOrder.ts";
-import { buildSystemPrompt } from "../parse-order/index.ts";
+import { buildBusinessPrompt } from "../_shared/businessPrompt.ts";
 import { getQrBranding } from "./branding.ts";
 
 const CORS_HEADERS = {
@@ -123,7 +123,10 @@ Deno.serve(async (request) => {
       if (productsError) throw productsError;
 
       const availableProducts = products || [];
-      const aiLines = await parseOrderWithGroq(text, availableProducts, buildSystemPrompt());
+      const { data: config, error: configError } = await admin.from("negocio_configuracion")
+        .select("reglas_pedidos").eq("negocio_id", negocioId).maybeSingle();
+      if (configError) throw configError;
+      const aiLines = await parseOrderWithGroq(text, availableProducts, buildBusinessPrompt(config?.reglas_pedidos));
       const productById = new Map(
         availableProducts.map((product) => [String(product.id), product])
       );

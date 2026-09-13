@@ -87,7 +87,7 @@ function isPinnedProduct(normalizedText: string, productName: string, sodaIntent
   return false;
 }
 
-export function pickRelevantProducts(text: string, products: CatalogProduct[]) {
+export function pickRelevantProducts(text: string, products: CatalogProduct[], limit = MAX_CATALOG_SIZE) {
   const { normalizedText, terms, sodaIntent } = expandedQueryTerms(text);
 
   const scored = products.map((product) => {
@@ -117,18 +117,19 @@ export function pickRelevantProducts(text: string, products: CatalogProduct[]) {
     return right.score - left.score || left.stableId.localeCompare(right.stableId);
   });
 
-  return scored.slice(0, MAX_CATALOG_SIZE).map(({ product }) => product);
+  return scored.slice(0, limit).map(({ product }) => product);
 }
 
 export async function parseOrderWithGroq(
   text: string,
   products: CatalogProduct[],
-  prompt: string
+  prompt: string,
+  options: { maxCatalogSize?: number; maxCompletionTokens?: number } = {}
 ) {
   const apiKey = Deno.env.get("GROQ_API_KEY") || Deno.env.get("GROQ_API_KEY_SABOR_LATINO_MOBILE");
   if (!apiKey) throw new Error("GROQ_NOT_CONFIGURED");
 
-  const catalog = pickRelevantProducts(text, products)
+  const catalog = pickRelevantProducts(text, products, options.maxCatalogSize ?? MAX_CATALOG_SIZE)
     .map((product, productRef) => ({
       id: String(product.id ?? ""),
       name: String(product.name ?? ""),
@@ -143,7 +144,7 @@ const requestBody = JSON.stringify({
   model: "openai/gpt-oss-120b",
   temperature: 0.1,
   reasoning_effort: "low",
-  max_completion_tokens: 400,
+  max_completion_tokens: options.maxCompletionTokens ?? 400,
   response_format: { type: "json_object" },
   messages: [
     { role: "system", content: prompt },

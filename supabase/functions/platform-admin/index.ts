@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { validateBusinessConfig } from "../_shared/businessConfig.ts";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -95,6 +96,8 @@ Deno.serve(async (request) => {
   } catch {
     body = {};
   }
+
+  if (!body || typeof body !== "object" || Array.isArray(body)) return reply({ error: "Solicitud inválida." }, 400);
 
   const action = typeof body.action === "string" ? body.action : "status";
 
@@ -245,7 +248,7 @@ Deno.serve(async (request) => {
           p_payment_info: cleanText(payload.paymentInfo, 500),
           p_timezone: cleanText(payload.timezone, 80) || "America/Bogota",
           p_moneda: (cleanText(payload.moneda, 3) || "COP").toUpperCase(),
-          p_reglas_pedidos: cleanText(payload.reglasPedidos, 5000),
+          p_reglas_pedidos: cleanText(payload.reglasPedidos, 20000),
           p_table_count: tableCount,
           p_qr_hashes: qrHashes,
         },
@@ -272,6 +275,36 @@ Deno.serve(async (request) => {
         owner: { id: ownerUserId, email: ownerEmail },
         qr_codes: qrCodes,
       }, 201);
+    }
+
+    if (action === "update_business") {
+      const businessId = cleanText(body.businessId, 64);
+      if (!/^[0-9a-f-]{36}$/i.test(businessId)) return reply({ error: "Negocio inválido." }, 400);
+      let config;
+      try { config = validateBusinessConfig(body.config); }
+      catch (error) { return reply({ error: error instanceof Error ? error.message : "Configuración inválida." }, 400); }
+      const { data, error } = await admin.from("negocio_configuracion")
+        .update(config).eq("negocio_id", businessId).select("negocio_id").maybeSingle();
+      if (error) throw error;
+      if (!data) return reply({ error: "No se encontró el negocio." }, 404);
+      return reply({ ok: true });
+    }
+
+    if (action === "verify_qr_manifest") {
+      const businessId = cleanText(body.businessId, 64);
+      const codes = Array.isArray(body.codes) ? body.codes : [];
+      if (!/^[0-9a-f-]{36}$/i.test(businessId) || codes.length < 1 || codes.length > 12) return reply({ error: "Manifiesto inválido." }, 400);
+      const { data: registered, error } = await admin.from("mesa_qr_codes")
+        .select("mesa_number,token_hash").eq("negocio_id", businessId);
+      if (error) throw error;
+      const seen = new Set();
+      for (const code of codes) {
+        if (!code || !Number.isInteger(code.mesa) || typeof code.token !== "string" || code.token.length < 32 || code.token.length > 256 || seen.has(code.mesa)) return reply({ error: "Manifiesto inválido." }, 400);
+        seen.add(code.mesa);
+        const digest = await sha256(code.token);
+        if (!registered?.some((row) => row.mesa_number === code.mesa && row.token_hash === digest)) return reply({ error: "Hay QR que no corresponden a este negocio o fueron reemplazados." }, 409);
+      }
+      return reply({ ok: true });
     }
 
     if (action === "set_business_access") {

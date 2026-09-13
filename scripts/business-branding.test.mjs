@@ -101,6 +101,10 @@ function fakeAdmin({ fault = null } = {}) {
   };
   return {
     calls,
+    async rpc(name, params) {
+      assert.equal(name, "business_has_active_subscription");
+      return { data: params.p_negocio_id !== "c", error: null };
+    },
     from(table) {
       assert.ok(tables[table], `Unexpected table: ${table}`);
       const filters = [];
@@ -125,7 +129,7 @@ test("QR público resuelve dos negocios por el hash, con lista pública de campo
   assert.deepEqual(await getQrBranding(admin, "hash-b"), { state: "ok", branding: { name: "Comercial B", logoUrl: "" } });
   const configs = admin.calls.filter((call) => call.table === "negocio_configuracion");
   assert.deepEqual(configs.map((call) => call.filters), [[["negocio_id", "a"]], [["negocio_id", "b"]]]);
-  // This fake deliberately has no RPC, INSERT, UPDATE or DELETE methods.
+  // This fake has only the read-only access RPC and no INSERT, UPDATE or DELETE methods.
 });
 
 test("QR desconocido/inactivo no devuelve branding; errores de BD no producen datos de otro negocio", async () => {

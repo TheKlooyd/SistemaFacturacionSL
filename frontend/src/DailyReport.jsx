@@ -36,13 +36,8 @@ function localDateFrom(isoString) {
   return `${yyyy}-${mm}-${dd}`;
 }
 
-function requireKey(actionName = "esta acción") {
-  const key = prompt(`Ingresa la clave de seguridad para ${actionName}:`);
-  if (key !== "1207") {
-    alert("Clave incorrecta. Acción cancelada.");
-    return false;
-  }
-  return true;
+function confirmAction(actionName = "esta acción") {
+  return confirm(`¿Confirmas que deseas ${actionName}?`);
 }
 
 function fmtDateTime(iso) {
@@ -418,7 +413,7 @@ export default function DailyReport({ onBack }) {
       if (!ok) return;
     }
 
-    if (!requireKey("generar el cierre diario")) return;
+    if (!closeForSelectedDate && !confirmAction("generar el cierre diario")) return;
 
     const closeObj = {
       ...liveCloseData,
@@ -441,8 +436,6 @@ export default function DailyReport({ onBack }) {
   }
 
   async function handleClearPayments() {
-    if (!requireKey("borrar el historial de pagos")) return;
-
     const ok = confirm(
       "⚠️ Esto borra TODOS los pagos guardados (historial). ¿Seguro?"
     );

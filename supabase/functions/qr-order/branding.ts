@@ -7,6 +7,10 @@ export async function getQrBranding(admin: SupabaseClient, qrHash: string) {
   if (qrError) throw qrError;
   if (!qr?.negocio_id) return { state: "invalid" };
 
+  const { data: allowed, error: accessError } = await admin.rpc("business_has_active_subscription", { p_negocio_id: qr.negocio_id });
+  if (accessError) throw accessError;
+  if (!allowed) return { state: "inactive" };
+
   const { data: negocio, error: negocioError } = await admin.from("negocios")
     .select("nombre,estado").eq("id", qr.negocio_id).maybeSingle();
   if (negocioError) throw negocioError;

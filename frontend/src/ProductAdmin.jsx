@@ -17,14 +17,6 @@ function formatCOP(value) {
   return new Intl.NumberFormat("es-CO").format(value || 0);
 }
 
-function requireKey(actionName = "esta acción") {
-  const key = prompt(`Ingresa la clave de seguridad para ${actionName}:`);
-  if (key !== "1207") {
-    alert("Clave incorrecta. Acción cancelada.");
-    return false;
-  }
-  return true;
-}
 
 export default function ProductAdmin({ onBack }) {
   const [categories, setCategories] = useState([]);
@@ -84,7 +76,6 @@ export default function ProductAdmin({ onBack }) {
   }
 
   async function handleDeleteCategory(catId) {
-    if (!requireKey("eliminar una categoría")) return;
 
     const cat = categories.find((c) => c.id === catId);
     const ok = confirm(`¿Eliminar la categoría "${cat?.name || ""}"?`);
@@ -145,8 +136,7 @@ export default function ProductAdmin({ onBack }) {
   }
 
   async function removeProduct(id) {
-    // aquí es el admin del catálogo: sí pedimos clave
-    if (!requireKey("eliminar un producto")) return;
+    // Confirmar antes de eliminar del catálogo.
 
     const p = products.find((x) => x.id === id);
     if (!p) return;
@@ -161,7 +151,6 @@ export default function ProductAdmin({ onBack }) {
 
   async function clearAllInCategory() {
     if (!selectedCatId) return;
-    if (!requireKey("borrar productos de la categoría")) return;
 
     const ok = confirm(
       `¿Borrar TODOS los productos de "${selectedCat?.name || "esta categoría"}"?`

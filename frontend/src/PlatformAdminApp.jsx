@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "./supabaseClient";
+import BusinessEditor from "./BusinessEditor";
+import { printBusinessQrs } from "./qrPrint";
 import {
   createPlatformBusiness,
   getPlatformAdminStatus,
@@ -149,6 +151,19 @@ function AdminLogin({ onReady }) {
 
 function BusinessCard({ business, onChanged }) {
   const [busy, setBusy] = useState(false);
+  const [editing, setEditing] = useState(false);
+  async function importAndPrint(event) {
+    const file = event.target.files?.[0]; event.target.value = "";
+    if (!file) return;
+    if (file.size > 100000) return alert("El manifiesto es demasiado grande.");
+    const popup = window.open("", "business-qr-print", "width=900,height=900");
+    if (!popup) return alert("Permite ventanas emergentes para imprimir los QR.");
+    setBusy(true);
+    try { await printBusinessQrs(business, JSON.parse(await file.text()), popup); }
+    catch (error) { popup.close(); alert(error.message || "No se pudieron imprimir los QR."); }
+    finally { setBusy(false); }
+  }
+
   const active = business.estado === "activo";
 
   async function toggleAccess() {
@@ -249,6 +264,13 @@ function BusinessCard({ business, onChanged }) {
         </div>
       </div>
 
+      {editing && <BusinessEditor business={business} onCancel={() => setEditing(false)} onSaved={async () => { await onChanged(); setEditing(false); }} />}
+      <button type="button" disabled={busy || editing} onClick={() => setEditing(true)} style={buttonStyle}>Editar negocio</button>
+      <label style={{ ...buttonStyle, display: "block", opacity: busy ? 0.5 : 1 }}>
+        Imprimir QR desde manifiesto
+        <input type="file" accept=".json,application/json" disabled={busy || editing} onChange={importAndPrint} style={{ display: "block", marginTop: 8, maxWidth: "100%" }} />
+      </label>
+      <small>Selecciona el manifiesto privado descargado al crear este negocio. Se validan sus QR antes de imprimir.</small>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
         <button
           type="button"
@@ -363,7 +385,7 @@ function CreateBusinessForm({ onCreated }) {
           : null,
       });
 
-      setCreated(result);
+      setCreated({ ...result, printConfig: { nombre_comercial: form.nombreComercial || form.nombre, logo_url: form.logoUrl } });
       await onCreated();
     } catch (error) {
       setErrorText(error?.message || "No fue posible crear el negocio.");
@@ -617,6 +639,13 @@ function CreateBusinessForm({ onCreated }) {
           }}
         >
           <b>Restaurante creado correctamente.</b>
+          <button type="button" disabled={busy} style={{ ...buttonStyle, margin: 10 }} onClick={async () => {
+            setBusy(true);
+            try {
+              await printBusinessQrs({ id: created.business.negocio_id, nombre: created.business.nombre, configuracion: created.printConfig }, created);
+            } catch (error) { alert(error.message || "No se pudieron imprimir los QR."); }
+            finally { setBusy(false); }
+          }}>Imprimir QR de las mesas</button>
 
           <div style={{ marginTop: 8 }}>
             {created.qr_codes?.length || 0} códigos QR fueron registrados.

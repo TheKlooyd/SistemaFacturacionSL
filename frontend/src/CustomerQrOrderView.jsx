@@ -14,7 +14,7 @@ function money(value) {
 
 const TERMINAL_MESSAGES = {
   invalid: "Este código no está disponible.",
-  inactive: "Esta mesa no está disponible en este momento.",
+  inactive: "Este negocio o esta mesa no están disponibles para pedidos en este momento.",
   occupied: "Esta mesa ya tiene un pedido en curso. Para agregar o modificar productos, llama a un mesero.",
   draft_elsewhere: "Ya existe una sesión activa para esta mesa desde otro dispositivo.",
   expired: "Tu borrador venció. Escanea nuevamente el código QR para empezar un pedido.",

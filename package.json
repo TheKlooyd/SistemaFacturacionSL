@@ -7,7 +7,8 @@
     "test:qr": "node --test scripts/qr-order-contract.test.mjs",
     "test:tenancy": "node --test scripts/multitenant-foundation.test.mjs",
     "test:branding": "node --test scripts/business-branding.test.mjs",
-    "test:daily-close": "node --test scripts/daily-close.test.mjs"
+    "test:daily-close": "node --test scripts/daily-close.test.mjs",
+    "test:launch": "node --test scripts/launch-readiness.test.mjs"
   },
   "dependencies": {
     "qrcode": "^1.5.4"

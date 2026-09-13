@@ -1,5 +1,5 @@
-export async function openPrintWindow(html, title = "print") {
-  const w = window.open("", title, "width=500,height=800");
+export async function openPrintWindow(html, title = "print", existingWindow = null) {
+  const w = existingWindow || window.open("", title, "width=500,height=800");
   if (!w) {
     alert("El navegador bloqueó la ventana emergente. Permite popups para imprimir.");
     return;

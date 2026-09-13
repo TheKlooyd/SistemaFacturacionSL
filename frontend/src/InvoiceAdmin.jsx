@@ -22,13 +22,8 @@ function localDateFrom(isoString) {
   return `${yyyy}-${mm}-${dd}`;
 }
 
-function requireKey(actionName = "esta acción") {
-  const key = prompt(`Ingresa la clave de seguridad para ${actionName}:`);
-  if (key !== "1207") {
-    alert("Clave incorrecta. Acción cancelada.");
-    return false;
-  }
-  return true;
+function confirmAction(actionName = "esta acción") {
+  return confirm(`¿Confirmas que deseas ${actionName}?`);
 }
 
 function fmtDateTime(iso) {
@@ -158,7 +153,7 @@ export default function InvoiceAdmin({ onBack }) {
   }
 
   async function handleDelete(payment) {
-    if (!requireKey("eliminar esta factura")) return;
+    if (!confirmAction("eliminar esta factura")) return;
     await deletePayment(payment.id);
     await reload();
     if (editingId === payment.id) {
