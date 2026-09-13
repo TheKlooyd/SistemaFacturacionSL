@@ -17,8 +17,26 @@ test('QR: suscripción comprobada dentro de cada RPC, incluida una sesión abier
   await db.exec(await readFile('supabase_schema.sql','utf8'));
   await db.exec('alter table productos add column size text');
   for (const file of (await readdir('supabase/migrations')).sort()) {
-    if (!file.endsWith('.sql') || file.endsWith('_tenant_daily_close_uniqueness.sql')) continue;
-    await db.exec(await readFile(`supabase/migrations/${file}`,'utf8'));
+    if (!file.endsWith('.sql')) continue;
+
+    if (file.endsWith('_tenant_daily_close_uniqueness.sql')) {
+      continue;
+    }
+
+    // Supabase Storage usa schemas propios que no existen en PGlite.
+    if (
+      file.includes('business_logo_storage') ||
+      file.includes('platform_admin_business_logo_select_policy')
+    ) {
+      continue;
+    }
+
+    await db.exec(
+      await readFile(
+        `supabase/migrations/${file}`,
+        'utf8'
+      )
+    );
   }
   async function createBusiness(letter) {
     const user = (await db.query('insert into auth.users(id) values(gen_random_uuid()) returning id')).rows[0].id;
