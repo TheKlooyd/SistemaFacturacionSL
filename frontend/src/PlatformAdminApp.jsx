@@ -316,7 +316,7 @@ function CreateBusinessForm({ onCreated }) {
     planCode: "manual",
     endsAt: "",
     nombreComercial: "", 
-    logoUrl: "",
+    logoFile: null,
     nit: "",
     direccion: "",
     telefono: "",
@@ -385,7 +385,22 @@ function CreateBusinessForm({ onCreated }) {
           : null,
       });
 
-      setCreated({ ...result, printConfig: { nombre_comercial: form.nombreComercial || form.nombre, logo_url: form.logoUrl } });
+      setCreated({
+        ...result,
+        printConfig: {
+          nombre_comercial:
+            form.nombreComercial || form.nombre,
+          logo_url:
+            result.logoUrl || "",
+        },
+      });
+
+      if (result.logoUploadError) {
+        alert(
+          `El restaurante fue creado correctamente, pero hubo un problema con el logo:\n\n${result.logoUploadError}`
+        );
+      }
+
       await onCreated();
     } catch (error) {
       setErrorText(error?.message || "No fue posible crear el negocio.");
@@ -489,11 +504,23 @@ function CreateBusinessForm({ onCreated }) {
           </label>
 
           <label style={fieldStyle}>
-            <span>URL del logo</span>
-            <input style={inputStyle} type="url" maxLength={500} value={form.logoUrl}
-              onChange={(e) => setValue("logoUrl", e.target.value)} placeholder="https://..." />
-            <small>Opcional. Sin logo se mostrará el de la plataforma.</small>
-          </label>
+  <span>Logo del negocio</span>
+
+  <input
+    type="file"
+    accept="image/png,image/jpeg,.jpg,.jpeg,.png"
+    onChange={(e) =>
+      setValue(
+        "logoFile",
+        e.target.files?.[0] || null
+      )
+    }
+  />
+
+  <small>
+    JPG, JPEG o PNG. Máximo 2 MB.
+  </small>
+</label>
 
           <label style={fieldStyle}>
             <span>NIT</span>

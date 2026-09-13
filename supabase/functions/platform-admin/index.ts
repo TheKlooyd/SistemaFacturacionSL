@@ -307,6 +307,137 @@ Deno.serve(async (request) => {
       return reply({ ok: true });
     }
 
+
+    if (action === "upload_business_logo") {
+  const businessId = cleanText(body.businessId, 64);
+
+  const contentType =
+    typeof body.contentType === "string"
+      ? body.contentType
+      : "";
+
+  const base64 =
+    typeof body.base64 === "string"
+      ? body.base64
+      : "";
+
+  if (
+    !/^[0-9a-f-]{36}$/i.test(businessId)
+  ) {
+    return reply(
+      { error: "Negocio inválido." },
+      400
+    );
+  }
+
+  if (
+    ![
+      "image/png",
+      "image/jpeg",
+    ].includes(contentType)
+  ) {
+    return reply(
+      {
+        error:
+          "Solo se permiten imágenes JPG, JPEG o PNG.",
+      },
+      400
+    );
+  }
+
+  if (!base64) {
+    return reply(
+      { error: "No se recibió ninguna imagen." },
+      400
+    );
+  }
+
+  let bytes: Uint8Array;
+
+  try {
+    const decoded = atob(base64);
+
+    bytes = Uint8Array.from(
+      decoded,
+      (char) => char.charCodeAt(0)
+    );
+  } catch {
+    return reply(
+      { error: "La imagen no es válida." },
+      400
+    );
+  }
+
+  if (bytes.length > 2 * 1024 * 1024) {
+    return reply(
+      {
+        error:
+          "La imagen no puede superar los 2 MB.",
+      },
+      400
+    );
+  }
+
+  const { data: business } =
+    await admin
+      .from("negocios")
+      .select("id")
+      .eq("id", businessId)
+      .maybeSingle();
+
+  if (!business) {
+    return reply(
+      { error: "No se encontró el negocio." },
+      404
+    );
+  }
+
+  const path =
+    `${businessId}/logo`;
+
+  const {
+    error: uploadError,
+  } = await admin.storage
+    .from("business-logos")
+    .upload(
+      path,
+      bytes,
+      {
+        contentType,
+        upsert: true,
+        cacheControl: "3600",
+      }
+    );
+
+  if (uploadError) {
+    console.error(
+      "logo upload failed",
+      uploadError
+    );
+
+    return reply(
+      {
+        error:
+          "No fue posible subir el logo.",
+      },
+      500
+    );
+  }
+
+  const {
+    data: publicData,
+  } = admin.storage
+    .from("business-logos")
+    .getPublicUrl(path);
+
+  return reply({
+    ok: true,
+    logoUrl:
+      publicData.publicUrl,
+  });
+}
+    
+
     if (action === "set_business_access") {
       const businessId = cleanText(body.businessId, 64);
       const active = body.active;
