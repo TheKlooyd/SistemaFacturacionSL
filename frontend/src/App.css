@@ -13,15 +13,23 @@
   --radius: 18px;
   --gap: 16px;
 
+  /* Base usada para "superficies" claras (tarjetas, chips) que antes eran blanco fijo */
+  --surface-base: #FFFFFF;
+
+  /* Resplandores del fondo de página */
+  --glow-1: rgba(254,174,13,.18);
+  --glow-2: rgba(176,83,40,.14);
+  --glow-3: rgba(205,5,8,.12);
+
   /* Nueva paleta */
   --red: #CD0508;
-  --red2: rgba(205,5,8,.22);
+  --red2: rgba(205,5,8,.24);
 
   --brown: #B05328;
-  --brown2: rgba(176,83,40,.22);
+  --brown2: rgba(176,83,40,.24);
 
   --amber: #FEAE0D;
-  --amber2: rgba(254,174,13,.22);
+  --amber2: rgba(254,174,13,.28);
 
   /* Backward-compat aliases */
   --yellow: #FEAE0D;
@@ -42,9 +50,9 @@ body{
   color: var(--text);
   font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
   background:
-    radial-gradient(900px 520px at 18% 10%, rgba(254,174,13,.16), transparent 58%),
-    radial-gradient(900px 520px at 72% 55%, rgba(176,83,40,.12), transparent 58%),
-    radial-gradient(900px 520px at 85% 12%, rgba(205,5,8,.10), transparent 58%),
+    radial-gradient(900px 520px at 18% 10%, var(--glow-1), transparent 58%),
+    radial-gradient(900px 520px at 72% 55%, var(--glow-2), transparent 58%),
+    radial-gradient(900px 520px at 85% 12%, var(--glow-3), transparent 58%),
     var(--bg);
 
   /* ✅ CLAVE: la página no scrollea */
@@ -76,10 +84,10 @@ body{
 }
 .qrCustomerPanel, .authPanel{
   width: min(100%, 620px);
-  background: rgba(255,255,255,.96);
-  border: 1px solid rgba(26,8,0,.16);
+  background: color-mix(in srgb, var(--surface-base) 96%, var(--bg));
+  border: 1px solid var(--border);
   border-radius: 8px;
-  box-shadow: 0 16px 42px rgba(26,8,0,.16);
+  box-shadow: 0 16px 42px rgba(0,0,0,.16);
   padding: 28px;
 }
 .qrCustomerPanel h1, .authPanel h1{ margin: 10px 0; font-size: 28px; }
@@ -91,12 +99,12 @@ body{
 .qrLine, .qrTotal{ display: flex; justify-content: space-between; gap: 16px; padding: 7px 0; }
 .qrTotal{ margin-top: 8px; border-top: 1px solid var(--border); font-size: 19px; }
 .qrFeedback, .qrWarning{ margin: 12px 0 0; padding: 10px 12px; border-radius: 6px; }
-.qrFeedback{ background: rgba(205,5,8,.09); color: #8b0709; }
-.qrWarning{ background: rgba(254,174,13,.16); color: #6b4300; }
+.qrFeedback{ background: color-mix(in srgb, var(--red) 10%, transparent); color: color-mix(in srgb, var(--red) 60%, black); }
+.qrWarning{ background: color-mix(in srgb, var(--amber) 18%, transparent); color: color-mix(in srgb, var(--amber) 55%, black); }
 .qrAction{ width: 100%; margin-top: 12px; }
 .authPanel{ display: grid; gap: 12px; max-width: 380px; }
 .authPanel h1{ text-align: center; }
-.staffLogout{ position: fixed; right: 14px; bottom: 14px; z-index: 1000; border: 1px solid rgba(26,8,0,.2); background: #fff; border-radius: 6px; padding: 8px 10px; cursor: pointer; }
+.staffLogout{ position: fixed; right: 14px; bottom: 14px; z-index: 1000; border: 1px solid var(--border); background: color-mix(in srgb, var(--surface-base) 100%, var(--bg)); border-radius: 6px; padding: 8px 10px; cursor: pointer; }
 @media (max-width: 520px){ .qrCustomerPage, .authPage{ padding: 12px; } .qrCustomerPanel, .authPanel{ padding: 20px; } }
 
 /* Mejor soporte en navegadores modernos */
@@ -142,6 +150,97 @@ body{
   flex-shrink: 0;
 }
 
+/* =========================
+   Personalization popover
+========================= */
+.personalizationAnchor{
+  position: relative;
+  display: inline-flex;
+  cursor: pointer;
+}
+
+.personalizationPanel{
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 50;
+  margin-top: 8px;
+  width: 260px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius, 16px);
+  box-shadow: var(--shadow);
+  padding: 14px;
+  backdrop-filter: blur(10px);
+}
+
+.personalizationTitle{
+  font-weight: 900;
+  font-size: 14px;
+  margin-bottom: 10px;
+  color: var(--text);
+}
+
+.personalizationSection + .personalizationSection{
+  margin-top: 12px;
+}
+
+.personalizationLabel{
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+.personalizationSwatchRow{
+  display: flex;
+  gap: 8px;
+}
+
+.personalizationSwatch{
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  padding: 0;
+  cursor: pointer;
+  background: transparent;
+}
+
+.personalizationSwatchColors{
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+}
+
+.personalizationSwatchActive{
+  border-color: var(--accent);
+}
+
+.personalizationOptionRow{
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.personalizationOption{
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--text) 5%, transparent);
+  color: var(--text);
+  border-radius: var(--radius, 10px);
+  padding: 5px 9px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.personalizationOptionActive{
+  background: var(--accent2);
+  border-color: var(--accent);
+}
+
 .topbar h1{
   margin: 0;
   font-size: clamp(24px, 2.2vw, 38px);
@@ -162,9 +261,9 @@ body{
 ========================= */
 .btn, .btnPrimary, .btnDanger, .btnDangerGhost{
   border: 1px solid var(--border);
-  background: rgba(0,0,0,.06);
+  background: color-mix(in srgb, var(--text) 6%, transparent);
   color: var(--text);
-  border-radius: 14px;
+  border-radius: var(--radius, 14px);
   padding: 10px 14px;
   font-weight: 800;
   cursor: pointer;
@@ -172,14 +271,14 @@ body{
 }
 
 .btn:hover{
-  background: rgba(0,0,0,.11);
+  background: color-mix(in srgb, var(--text) 11%, transparent);
   transform: translateY(-1px);
 }
 
 .btnPrimary{
   background: var(--accent2);
-  border-color: rgba(254,174,13,.50);
-  color: rgba(10,5,0,.92); /* texto oscuro sobre ámbar */
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+  color: rgba(10,5,0,.92); /* texto oscuro sobre acento */
 }
 .btnPrimary:hover{
   filter: brightness(1.05);
@@ -187,22 +286,22 @@ body{
 }
 
 .btnDanger{
-  background: rgba(205,5,8,.16);
-  border-color: rgba(205,5,8,.40);
+  background: color-mix(in srgb, var(--red) 18%, transparent);
+  border-color: color-mix(in srgb, var(--red) 42%, transparent);
 }
 .btnDanger:hover{
-  background: rgba(205,5,8,.26);
+  background: color-mix(in srgb, var(--red) 28%, transparent);
   transform: translateY(-1px);
 }
 
 .btnDangerGhost{
   padding: 8px 10px;
-  border-radius: 12px;
+  border-radius: var(--radius, 12px);
   white-space: nowrap;
 }
 .btnDangerGhost:hover{
-  border-color: rgba(205,5,8,.45);
-  background: rgba(205,5,8,.12);
+  border-color: color-mix(in srgb, var(--red) 46%, transparent);
+  background: color-mix(in srgb, var(--red) 14%, transparent);
 }
 
 .btn:disabled, .btnPrimary:disabled, .btnDanger:disabled{
@@ -216,16 +315,16 @@ body{
 }
 
 .homeActionButton{
-  --action-tint: rgba(0,0,0,.08);
-  --action-border: rgba(0,0,0,.14);
-  --action-glow: rgba(0,0,0,.10);
+  --action-tint: color-mix(in srgb, var(--text) 8%, transparent);
+  --action-border: color-mix(in srgb, var(--text) 14%, transparent);
+  --action-glow: color-mix(in srgb, var(--text) 10%, transparent);
 
   min-width: 104px;
   min-height: 94px;
   padding: 12px 14px;
   border: 1px solid var(--action-border);
   border-radius: 20px;
-  background: linear-gradient(180deg, rgba(255,255,255,.98), var(--action-tint));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--surface-base) 98%, var(--bg)), var(--action-tint));
   color: var(--text);
   display: flex;
   flex-direction: column;
@@ -365,7 +464,7 @@ body{
   border: 1px solid var(--border);
   border-radius: 14px;
   padding: 12px 8px;
-  background: rgba(255,255,255,.75);
+  background: color-mix(in srgb, var(--surface-base) 75%, var(--bg));
   color: var(--text);
   font-weight: 800;
   cursor: pointer;
@@ -373,14 +472,14 @@ body{
 }
 
 .mobileTableChip:hover{
-  background: rgba(255,255,255,.95);
+  background: color-mix(in srgb, var(--surface-base) 95%, var(--bg));
   transform: translateY(-1px);
 }
 
 .mobileTableChip.selected{
-  background: linear-gradient(180deg, rgba(176,83,40,.28), rgba(255,255,255,.85));
-  border-color: rgba(176,83,40,.55);
-  box-shadow: 0 0 0 2px rgba(176,83,40,.30);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--brown) 28%, transparent), color-mix(in srgb, var(--surface-base) 85%, var(--bg)));
+  border-color: color-mix(in srgb, var(--brown) 55%, transparent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--brown) 30%, transparent);
 }
 
 .mobileOrderTextarea{
@@ -417,15 +516,15 @@ body{
 }
 
 .mobileFeedback.success{
-  background: rgba(176,83,40,.16);
-  border: 1px solid rgba(176,83,40,.38);
-  color: #1a0800;
+  background: color-mix(in srgb, var(--brown) 16%, transparent);
+  border: 1px solid color-mix(in srgb, var(--brown) 38%, transparent);
+  color: var(--text);
 }
 
 .mobileFeedback.error{
-  background: rgba(205,5,8,.14);
-  border: 1px solid rgba(205,5,8,.35);
-  color: #6b0002;
+  background: color-mix(in srgb, var(--red) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--red) 35%, transparent);
+  color: color-mix(in srgb, var(--red) 55%, black);
 }
 
 /* Teléfonos: reduce paddings/gaps para minimizar scroll, solo la grilla de mesas scrollea internamente */
@@ -496,9 +595,9 @@ body{
 
 .mobileNotifyToast{
   background: var(--panel);
-  border: 1px solid rgba(176,83,40,.45);
+  border: 1px solid color-mix(in srgb, var(--brown) 45%, transparent);
   border-radius: 16px;
-  box-shadow: 0 16px 40px rgba(0,0,0,.22);
+  box-shadow: 0 16px 40px rgba(0,0,0,.30);
   padding: 14px 16px;
   backdrop-filter: blur(10px);
   animation: mobileNotifySlideIn .22s ease-out;
@@ -526,14 +625,14 @@ body{
   height: 9px;
   border-radius: 50%;
   background: var(--red);
-  box-shadow: 0 0 0 rgba(205,5,8,.55);
+  box-shadow: 0 0 0 color-mix(in srgb, var(--red) 55%, transparent);
   animation: mobileNotifyPulse 1.4s infinite;
 }
 
 @keyframes mobileNotifyPulse{
-  0%{ box-shadow: 0 0 0 0 rgba(205,5,8,.55); }
-  70%{ box-shadow: 0 0 0 8px rgba(205,5,8,0); }
-  100%{ box-shadow: 0 0 0 0 rgba(205,5,8,0); }
+  0%{ box-shadow: 0 0 0 0 color-mix(in srgb, var(--red) 55%, transparent); }
+  70%{ box-shadow: 0 0 0 8px color-mix(in srgb, var(--red) 0%, transparent); }
+  100%{ box-shadow: 0 0 0 0 color-mix(in srgb, var(--red) 0%, transparent); }
 }
 
 .mobileNotifyToastBody{
@@ -568,15 +667,15 @@ body{
   width: 100%;
   border-radius: 14px;
   padding: 11px 12px;
-  border: 1px solid rgba(0,0,0,.18);
-  background: rgba(255,255,255,.85);
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface-base) 85%, var(--bg));
   color: var(--text);
   outline: none;
 }
 
 .input:focus{
-  border-color: rgba(254,174,13,.60);
-  box-shadow: 0 0 0 4px rgba(254,174,13,.20);
+  border-color: color-mix(in srgb, var(--accent) 60%, transparent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 20%, transparent);
 }
 
 /* =========================
@@ -611,7 +710,7 @@ body{
   border-radius: 16px;
   padding: 14px;
   border: 1px solid var(--border);
-  background: rgba(255,255,255,.75);
+  background: color-mix(in srgb, var(--surface-base) 75%, var(--bg));
   cursor:pointer;
   transition: transform .08s ease, background .18s ease, border-color .18s ease;
   min-height: 120px;
@@ -632,12 +731,12 @@ body{
 
 .tableCard:hover{
   transform: translateY(-2px);
-  background: rgba(255,255,255,.95);
+  background: color-mix(in srgb, var(--surface-base) 95%, var(--bg));
 }
 
 .tableCard.free{
-  background: linear-gradient(180deg, rgba(176,83,40,.18), rgba(255,255,255,.75));
-  border-color: rgba(176,83,40,.45);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--brown) 18%, transparent), color-mix(in srgb, var(--surface-base) 75%, var(--bg)));
+  border-color: color-mix(in srgb, var(--brown) 45%, transparent);
 }
 .tableCard.busy{
   background: linear-gradient(160deg, #cd0508 0%, #ff4347 50%, #ffb3b4 100%);
@@ -647,13 +746,13 @@ body{
 
 .tableCardGhost{
   border-style: dashed;
-  border-color: rgba(26,8,0,.24);
-  background: linear-gradient(180deg, rgba(255,255,255,.46), rgba(176,83,40,.10));
+  border-color: color-mix(in srgb, var(--text) 24%, transparent);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--surface-base) 46%, var(--bg)), color-mix(in srgb, var(--brown) 10%, transparent));
 }
 
 .tableCardGhost:hover:not(:disabled){
-  background: linear-gradient(180deg, rgba(255,255,255,.78), rgba(254,174,13,.16));
-  border-color: rgba(176,83,40,.38);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--surface-base) 78%, var(--bg)), color-mix(in srgb, var(--amber) 16%, transparent));
+  border-color: color-mix(in srgb, var(--brown) 38%, transparent);
 }
 
 .tableCardGhost .tableIcon{
@@ -662,11 +761,11 @@ body{
 }
 
 .tableCardGhost .tableName{
-  color: rgba(26,8,0,.84);
+  color: color-mix(in srgb, var(--text) 84%, transparent);
 }
 
 .tableCardGhost .tableStatus{
-  color: rgba(26,8,0,.72);
+  color: color-mix(in srgb, var(--text) 72%, transparent);
   font-weight: 800;
 }
 
@@ -683,9 +782,9 @@ body{
   width: 44px;
   height: 44px;
   border-radius: 999px;
-  border: 1px solid rgba(26,8,0,.18);
-  background: rgba(255,255,255,.92);
-  color: #1a0800;
+  border: 1px solid color-mix(in srgb, var(--text) 18%, transparent);
+  background: color-mix(in srgb, var(--surface-base) 92%, var(--bg));
+  color: var(--text);
   font-size: 30px;
   font-weight: 900;
   line-height: 1;
@@ -699,10 +798,10 @@ body{
   z-index: 2;
   width: 34px;
   height: 34px;
-  border: 1px solid rgba(139,0,2,.35);
+  border: 1px solid color-mix(in srgb, var(--red) 35%, transparent);
   border-radius: 999px;
-  background: rgba(255,255,255,.92);
-  color: #8b0002;
+  background: color-mix(in srgb, var(--surface-base) 92%, var(--bg));
+  color: color-mix(in srgb, var(--red) 55%, black);
   font-size: 24px;
   line-height: 1;
   font-weight: 900;
@@ -715,24 +814,24 @@ body{
 
 .tableDeleteButton:hover{
   transform: scale(1.05);
-  background: #fff;
-  border-color: rgba(139,0,2,.55);
+  background: color-mix(in srgb, var(--surface-base) 100%, var(--bg));
+  border-color: color-mix(in srgb, var(--red) 55%, transparent);
 }
 
 .tableDeleteButton.blocked{
-  color: rgba(26,8,0,.58);
-  border-color: rgba(26,8,0,.18);
-  background: rgba(255,255,255,.88);
+  color: color-mix(in srgb, var(--text) 58%, transparent);
+  border-color: color-mix(in srgb, var(--text) 18%, transparent);
+  background: color-mix(in srgb, var(--surface-base) 88%, var(--bg));
 }
 
 .tableName{
   font-size: 16px;
   font-weight: 900;
-  color: #1a0800;
+  color: var(--text);
 }
 .tableStatus{
   font-size: 13px;
-  color: rgba(26,8,0,.65);
+  color: color-mix(in srgb, var(--text) 65%, transparent);
 }
 .tableTimer{
   position: absolute;
@@ -746,9 +845,9 @@ body{
   font-size: 13px;
   font-weight: 900;
   letter-spacing: 0.06em;
-  color: rgba(26,8,0,.88);
-  background: rgba(255,255,255,.85);
-  border: 1px solid rgba(26,8,0,.12);
+  color: color-mix(in srgb, var(--text) 88%, transparent);
+  background: color-mix(in srgb, var(--surface-base) 85%, var(--bg));
+  border: 1px solid color-mix(in srgb, var(--text) 12%, transparent);
   border-radius: 999px;
   padding: 4px 9px;
   box-shadow: 0 8px 18px rgba(0,0,0,.12);
@@ -785,7 +884,7 @@ body{
   gap: 14px;
   padding: 12px 12px;
   border-radius: 14px;
-  background: rgba(255,255,255,.80);
+  background: color-mix(in srgb, var(--surface-base) 80%, var(--bg));
   border: 1px solid var(--border);
 }
 
@@ -867,14 +966,14 @@ body{
   padding: 10px 12px;
   border-radius: 14px;
   border: 1px solid var(--border);
-  background: rgba(255,255,255,.75);
+  background: color-mix(in srgb, var(--surface-base) 75%, var(--bg));
   color: var(--text);
   cursor: pointer;
   font-weight: 800;
 }
 .catBtn.active{
   background: var(--accent2);
-  border-color: rgba(254,174,13,.50);
+  border-color: color-mix(in srgb, var(--accent) 50%, transparent);
   color: rgba(10,5,0,.92);
 }
 
@@ -895,7 +994,7 @@ body{
   gap: 12px;
   padding: 12px;
   border-radius: 14px;
-  background: rgba(255,255,255,.80);
+  background: color-mix(in srgb, var(--surface-base) 80%, var(--bg));
   border: 1px solid var(--border);
 }
 
@@ -973,12 +1072,12 @@ body{
   padding: 10px;
   border-radius: 14px;
   border: 1px solid var(--border);
-  background: rgba(255,255,255,.75);
+  background: color-mix(in srgb, var(--surface-base) 75%, var(--bg));
 }
 
 .catCard.active{
-  border-color: rgba(254,174,13,.50);
-  background: rgba(254,174,13,.12);
+  border-color: color-mix(in srgb, var(--accent) 50%, transparent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
 }
 
 .catPick{
@@ -996,7 +1095,7 @@ body{
   text-overflow: ellipsis;
 }
 .catPick:hover{
-  background: rgba(0,0,0,.07);
+  background: color-mix(in srgb, var(--text) 8%, transparent);
 }
 
 /* Productos admin */
@@ -1021,10 +1120,10 @@ body{
 
 .emptyState{
   padding: 12px;
-  border: 1px dashed rgba(0,0,0,.20);
+  border: 1px dashed color-mix(in srgb, var(--text) 20%, transparent);
   border-radius: 14px;
   color: var(--muted);
-  background: rgba(0,0,0,.04);
+  background: color-mix(in srgb, var(--text) 4%, transparent);
 }
 
 /* =========================
@@ -1051,10 +1150,10 @@ body{
 
 .modalCard{
   width: min(680px, 100%);
-  background: rgba(255,252,248,.97);
-  border: 1px solid rgba(0,0,0,.12);
+  background: color-mix(in srgb, var(--surface-base) 97%, var(--bg));
+  border: 1px solid var(--border);
   border-radius: 22px;
-  box-shadow: 0 20px 60px rgba(0,0,0,.20);
+  box-shadow: 0 20px 60px rgba(0,0,0,.30);
   padding: 18px;
   backdrop-filter: blur(10px);
 }
@@ -1073,8 +1172,8 @@ body{
   margin-top: 12px;
   padding: 12px;
   border-radius: 16px;
-  background: rgba(0,0,0,.04);
-  border: 1px solid rgba(0,0,0,.10);
+  background: color-mix(in srgb, var(--text) 4%, transparent);
+  border: 1px solid var(--border);
 }
 
 .payMethods{
@@ -1114,7 +1213,7 @@ body{
 
 .chip{
   border: 1px solid var(--border);
-  background: rgba(0,0,0,.07);
+  background: color-mix(in srgb, var(--text) 7%, transparent);
   color: var(--text);
   border-radius: 999px;
   padding: 8px 12px;
@@ -1124,7 +1223,7 @@ body{
 
 .chip.active{
   background: var(--accent2);
-  border-color: rgba(254,174,13,.50);
+  border-color: color-mix(in srgb, var(--accent) 50%, transparent);
   color: rgba(10,5,0,.92);
 }
 

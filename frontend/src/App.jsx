@@ -14,6 +14,7 @@ import MobileOrderView from "./MobileOrderView";
 import MobileOrderNotificationStack from "./MobileOrderNotifications";
 import CustomerQrOrderView from "./CustomerQrOrderView";
 import BusinessLogo from "./BusinessLogo";
+import PersonalizationMenu from "./PersonalizationMenu";
 import StaffAuthGate from "./StaffAuthGate";
 
 import {
@@ -807,11 +808,13 @@ export function StaffPosApp() {
             minWidth: 0,
           }}
         >
-          <BusinessLogo
-            src={branding.logoUrl}
-            className="topbarLogo"
-            name={branding.name}
-          />
+          <PersonalizationMenu>
+            <BusinessLogo
+              src={branding.logoUrl}
+              className="topbarLogo"
+              name={branding.name}
+            />
+          </PersonalizationMenu>
 
           <div
             style={{
