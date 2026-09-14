@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { loadPayments, updatePayment, deletePayment } from "./paymentsStore";
 import { loadProducts } from "./productsStore";
+import { openPrintWindow } from "./print";
+import { ticketFactura } from "./printTemplates";
+import { getBusinessBranding } from "./businessBranding";
 
 function formatCOP(value) {
   return new Intl.NumberFormat("es-CO").format(value || 0);
@@ -150,6 +153,36 @@ export default function InvoiceAdmin({ onBack }) {
     setSaving(false);
     setEditingId(null);
     setEditItems([]);
+  }
+
+  async function handlePrint(payment) {
+    const branding = getBusinessBranding();
+    const items = editItems.length > 0 ? editItems : payment.items || [];
+    const subtotal = editItems.length > 0 ? editSubtotal : payment.subtotal || 0;
+    const totalWithTip = subtotal + (payment.tipAmount || 0) - (payment.discountAmount || 0);
+    try {
+      await openPrintWindow(
+        ticketFactura({
+          branding,
+          tableName: payment.isDelivery ? "DELIVERY" : (payment.tableName || `Mesa ${payment.tableId}`),
+          createdAt: payment.createdAt,
+          isDelivery: payment.isDelivery,
+          deliveryClient: payment.isDelivery ? payment.deliveryClient : null,
+          items,
+          subtotal,
+          tipAmount: payment.tipAmount || 0,
+          discountAmount: payment.discountAmount || 0,
+          totalWithTip,
+          method: payment.method,
+          paymentSplits: payment.paymentSplits,
+          paidAmount: payment.paidAmount ?? totalWithTip,
+        }),
+        "factura"
+      );
+    } catch (error) {
+      console.error("print invoice error:", error);
+      alert("No se pudo imprimir la factura.");
+    }
   }
 
   async function handleDelete(payment) {
@@ -319,6 +352,13 @@ export default function InvoiceAdmin({ onBack }) {
                       disabled={saving}
                     >
                       {saving ? "Guardando..." : "💾 Guardar cambios"}
+                    </button>
+                    <button
+                      className="btn"
+                      onClick={() => handlePrint(payment)}
+                      disabled={saving}
+                    >
+                      🖨️ Imprimir factura
                     </button>
                     <button
                       className="btnDanger"
