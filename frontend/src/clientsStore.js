@@ -1,16 +1,17 @@
 import { supabase } from "./supabaseClient";
 import { requireNegocioId } from "./tenantSession";
 
-export async function loadClients() {
+export async function loadClients({ throwOnError = false } = {}) {
   const negocioId = requireNegocioId();
 
   const { data, error } = await supabase
     .from("clientes")
-    .select("*")
+    .select("id,name,phone,address,notes,created_at")
     .eq("negocio_id", negocioId)
     .order("created_at", { ascending: false });
 
   if (error) {
+    if (throwOnError) throw error;
     console.error("loadClients error:", error);
     return [];
   }

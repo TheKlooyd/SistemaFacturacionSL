@@ -147,6 +147,9 @@ export default function TableOrder({ table, onBack, onPaid }) {
   // Delivery
   const [isDelivery, setIsDelivery] = useState(false);
   const [clients, setClients] = useState([]);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const [clientsError, setClientsError] = useState("");
   const [clientQuery, setClientQuery] = useState("");
   const [selectedClient, setSelectedClient] = useState(null);
 
@@ -221,23 +224,35 @@ export default function TableOrder({ table, onBack, onPaid }) {
   }
 
   useEffect(() => {
-    (async () => {
-      const [cats, prods, loadedClients, savedOrder] = await Promise.all([
-        loadCategories(),
-        loadProducts(),
-        loadClients(),
-        getOpenOrder(String(table.id)),
-      ]);
+    let cancelled = false;
+    // Clients must not hold up the catalog. Ignore late results after leaving a table.
+    void loadClients({ throwOnError: true }).then((rows) => {
+      if (!cancelled) setClients(rows);
+    }).catch(() => {
+      if (!cancelled) setClientsError("No se pudieron cargar los clientes. Vuelve a abrir la mesa para reintentar.");
+    });
+    void Promise.all([
+      loadCategories({ throwOnError: true }),
+      loadProducts({ throwOnError: true }),
+      getOpenOrder(String(table.id), { throwOnError: true }),
+    ]).then(([cats, prods, savedOrder]) => {
+      if (cancelled) return;
       setCategories(cats);
       setProducts(prods);
       if (cats.length) setSelectedCatId(cats[0].id);
-      setClients(loadedClients);
       if (savedOrder) {
         setOrder({ ...savedOrder, items: withLineIds(savedOrder.items) });
         setIsDelivery(savedOrder.isDelivery || false);
         setSelectedClient(savedOrder.deliveryClient || null);
       }
-    })();
+      setInitialLoading(false);
+    }).catch(() => {
+      if (!cancelled) {
+        setLoadError("No se pudo cargar la cuenta o el catálogo. Vuelve a abrir la mesa para reintentar.");
+        setInitialLoading(false);
+      }
+    });
+    return () => { cancelled = true; };
   }, [table.id]);
 
   const filteredClients = useMemo(() => {
@@ -524,6 +539,13 @@ export default function TableOrder({ table, onBack, onPaid }) {
     },
   ];
 
+  if (initialLoading || loadError) {
+    return <div className="page">
+      <button className="btn" onClick={onBack}>Volver a mesas</button>
+      <p role={loadError ? "alert" : "status"}>{loadError || "Cargando catálogo y cuenta..."}</p>
+    </div>;
+  }
+
   return (
     <div className="page">
       <div className="topbar">
@@ -668,6 +690,7 @@ export default function TableOrder({ table, onBack, onPaid }) {
           {isDelivery && (
             <section className="card deliveryCard">
               <h2 style={{ marginTop: 0 }}>🛵 Cliente Delivery</h2>
+              {clientsError && <p role="alert">{clientsError}</p>}
 
               {selectedClient ? (
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 10 }}>

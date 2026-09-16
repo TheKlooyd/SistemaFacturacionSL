@@ -34,6 +34,7 @@ jobs:
           node-version: '22'
           cache: npm
       - run: npm ci
+      - run: node --test scripts/performance.test.mjs
       - run: npm run test:launch
       - run: npm run test:daily-close
       - run: npm run test:tenancy

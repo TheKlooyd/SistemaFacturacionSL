@@ -1,18 +1,18 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import "./App.css";
 
 import { requireNegocioId } from "./tenantSession";
 import { getBusinessBranding } from "./businessBranding";
-import PlatformAdminApp from "./PlatformAdminApp";
+const PlatformAdminApp = lazy(() => import("./PlatformAdminApp"));
 
-import ProductAdmin from "./ProductAdmin";
-import ClientAdmin from "./ClientAdmin";
+const ProductAdmin = lazy(() => import("./ProductAdmin"));
+const ClientAdmin = lazy(() => import("./ClientAdmin"));
 import TableOrder from "./TableOrder";
-import DailyReport from "./DailyReport";
-import InvoiceAdmin from "./InvoiceAdmin";
-import MobileOrderView from "./MobileOrderView";
+const DailyReport = lazy(() => import("./DailyReport"));
+const InvoiceAdmin = lazy(() => import("./InvoiceAdmin"));
+const MobileOrderView = lazy(() => import("./MobileOrderView"));
 import MobileOrderNotificationStack from "./MobileOrderNotifications";
-import CustomerQrOrderView from "./CustomerQrOrderView";
+const CustomerQrOrderView = lazy(() => import("./CustomerQrOrderView"));
 import BusinessLogo from "./BusinessLogo";
 import PersonalizationMenu from "./PersonalizationMenu";
 import StaffAuthGate from "./StaffAuthGate";
@@ -629,6 +629,7 @@ export function StaffPosApp() {
     return (
       <div className="page">
         <TableOrder
+          key={selectedTable.id}
           table={selectedTable}
           onBack={showTables}
           onPaid={showTables}
@@ -1073,7 +1074,7 @@ export function StaffPosApp() {
   );
 }
 
-export default function App() {
+function AppRoutes() {
   const params =
     new URLSearchParams(
       window.location.search
@@ -1115,5 +1116,13 @@ export default function App() {
     <StaffAuthGate>
       <StaffPosApp />
     </StaffAuthGate>
+  );
+}
+
+export default function App() {
+  return (
+    <Suspense fallback={<p role="status" className="page">Cargando pantalla...</p>}>
+      <AppRoutes />
+    </Suspense>
   );
 }

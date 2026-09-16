@@ -1,18 +1,30 @@
+import { createPendingRead } from "./pendingRead.js";
 import { supabase } from "./supabaseClient";
 import { requireNegocioId } from "./tenantSession";
 
-export async function loadProducts() {
-  const negocioId = requireNegocioId();
+const pendingRead = createPendingRead();
+
+export async function loadProducts({ fresh = false, throwOnError = false } = {}) {
+  try {
+    const negocioId = requireNegocioId();
+    return await pendingRead(negocioId, () => fetchRows(negocioId), { fresh });
+  } catch (error) {
+    if (throwOnError) throw error;
+    console.error("loadProducts error:", error);
+    return [];
+  }
+}
+
+async function fetchRows(negocioId) {
 
   const { data, error } = await supabase
     .from("productos")
-    .select("*")
+    .select("id,category_id,name,price,size")
     .eq("negocio_id", negocioId)
     .order("name");
 
   if (error) {
-    console.error("loadProducts error:", error);
-    return [];
+    throw error;
   }
 
   return (data || []).map((p) => ({
@@ -42,7 +54,7 @@ export async function addProduct(product) {
     console.error("addProduct error:", error);
   }
 
-  return await loadProducts();
+  return await loadProducts({ fresh: true });
 }
 
 export async function updateProduct(id, changes) {
@@ -64,7 +76,7 @@ export async function updateProduct(id, changes) {
     console.error("updateProduct error:", error);
   }
 
-  return await loadProducts();
+  return await loadProducts({ fresh: true });
 }
 
 export async function deleteProduct(id) {
@@ -80,7 +92,7 @@ export async function deleteProduct(id) {
     console.error("deleteProduct error:", error);
   }
 
-  return await loadProducts();
+  return await loadProducts({ fresh: true });
 }
 
 export async function deleteProductsByCategory(categoryId) {
@@ -99,5 +111,5 @@ export async function deleteProductsByCategory(categoryId) {
     );
   }
 
-  return await loadProducts();
+  return await loadProducts({ fresh: true });
 }

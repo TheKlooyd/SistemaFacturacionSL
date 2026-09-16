@@ -1,18 +1,30 @@
+import { createPendingRead } from "./pendingRead.js";
 import { supabase } from "./supabaseClient";
 import { requireNegocioId } from "./tenantSession";
 
-export async function loadCategories() {
-  const negocioId = requireNegocioId();
+const pendingRead = createPendingRead();
+
+export async function loadCategories({ fresh = false, throwOnError = false } = {}) {
+  try {
+    const negocioId = requireNegocioId();
+    return await pendingRead(negocioId, () => fetchRows(negocioId), { fresh });
+  } catch (error) {
+    if (throwOnError) throw error;
+    console.error("loadCategories error:", error);
+    return [];
+  }
+}
+
+async function fetchRows(negocioId) {
 
   const { data, error } = await supabase
     .from("categorias")
-    .select("*")
+    .select("id,name")
     .eq("negocio_id", negocioId)
     .order("name");
 
   if (error) {
-    console.error("loadCategories error:", error);
-    return [];
+    throw error;
   }
 
   return (data || []).map((c) => ({
@@ -51,7 +63,7 @@ export async function ensureSeedCategories() {
     console.error("ensureSeedCategories error:", error);
   }
 
-  return await loadCategories();
+  return await loadCategories({ fresh: true });
 }
 
 export async function addCategory(name) {
@@ -87,7 +99,7 @@ export async function addCategory(name) {
     throw new Error(error.message);
   }
 
-  return await loadCategories();
+  return await loadCategories({ fresh: true });
 }
 
 export async function deleteCategory(categoryId, products = []) {
@@ -113,5 +125,5 @@ export async function deleteCategory(categoryId, products = []) {
     throw new Error(error.message);
   }
 
-  return await loadCategories();
+  return await loadCategories({ fresh: true });
 }

@@ -73,7 +73,7 @@ export async function getAllOpenOrders() {
   return map;
 }
 
-export async function getOpenOrder(tableId) {
+export async function getOpenOrder(tableId, { throwOnError = false } = {}) {
   const negocioId = requireNegocioId();
 
   const { data, error } = await supabase
@@ -87,6 +87,7 @@ export async function getOpenOrder(tableId) {
     });
 
   if (error) {
+    if (throwOnError) throw error;
     console.error(
       "getOpenOrder error:",
       error
