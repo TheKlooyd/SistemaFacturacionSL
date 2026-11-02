@@ -99,7 +99,9 @@ button:disabled { cursor: not-allowed; opacity: .5; }
 .metricAmount .metricLabel svg { color: var(--accent); opacity: 1; }
 .metricFoot { display: flex; gap: 6px; align-items: center; color: var(--muted); font-size: .6875rem; }
 .statusDot { display: inline-block; width: 5px; height: 5px; background: var(--success); border-radius: 50%; flex-shrink: 0; }
-.statusDot.orange { background: var(--accent); }
+.operationsDashboard { --station-free: #15803d; --station-busy: #b91c1c; }
+.operationsDashboard .statusDot { background: var(--station-free); }
+.operationsDashboard .statusDot.busy { background: var(--station-busy); }
 .stationsHeading { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; gap: 12px; }
 .stationsHeading h2 { font-size: 1.375rem; letter-spacing: -.035em; font-weight: 600; margin: 6px 0 0; display: flex; gap: 10px; align-items: center; }
 .stationsHeading h2 > span { font-size: .625rem; letter-spacing: 0; font-weight: 500; color: var(--muted); border: 1px solid var(--border); padding: 3px 7px; border-radius: 5px; }
@@ -116,23 +118,21 @@ button:disabled { cursor: not-allowed; opacity: .5; }
 .stationSearch input { min-width: 0; width: 100%; border: 0; background: transparent; outline: none; color: var(--text); font-size: .6875rem; }
 .stationSearch:focus-within { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent2); }
 .stationGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; }
-.stationCard { min-width: 0; border: 1px solid var(--border); background: var(--surface-base); border-radius: 10px; transition: border-color .18s, box-shadow .18s, transform .18s; }
-.stationCard:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); box-shadow: 0 6px 18px #24272b06; transform: translateY(-2px); }
-.stationCard.occupied { border-color: color-mix(in srgb, var(--accent) 35%, var(--border)); }
+.stationCard { --station-status: var(--station-free); min-width: 0; border: 1px solid color-mix(in srgb, var(--station-status) 65%, var(--border)); border-top: 4px solid var(--station-status); background: color-mix(in srgb, var(--station-status) 10%, var(--surface-base)); border-radius: 10px; transition: border-color .18s, box-shadow .18s, transform .18s; }
+.stationCard:hover { border-color: var(--station-status); box-shadow: 0 6px 18px color-mix(in srgb, var(--station-status) 14%, transparent); transform: translateY(-2px); }
+.stationCard.occupied { --station-status: var(--station-busy); }
 .stationOpen { display: flex; flex-direction: column; width: 100%; color: var(--text); text-align: left; border: 0; background: transparent; padding: 14px 16px 10px; cursor: pointer; border-radius: 10px 10px 0 0; }
 .stationCardTop { display: flex; align-items: center; justify-content: space-between; gap: 7px; width: 100%; margin-bottom: 8px; }
-.stationGlyph { display: grid; place-items: center; width: 32px; height: 32px; color: var(--muted); background: var(--bg); border: 1px solid var(--border); border-radius: 9px; }
+.stationGlyph { display: grid; place-items: center; width: 32px; height: 32px; color: var(--station-status); background: color-mix(in srgb, var(--station-status) 15%, var(--surface-base)); border: 1px solid color-mix(in srgb, var(--station-status) 35%, var(--border)); border-radius: 9px; }
 .stationGlyph svg { width: 21px; height: 21px; }
 .stationGlyph img { width: 100%; height: 100%; padding: 3px; object-fit: contain; }
-.occupied .stationGlyph { background: var(--accent2); color: var(--accent); border-color: color-mix(in srgb, var(--accent) 12%, var(--border)); }
-.stationBadge { display: flex; align-items: center; gap: 5px; color: var(--success); background: var(--success-soft); border-radius: 5px; padding: 5px 7px; font-size: .625rem; font-weight: 550; }
-.stationBadge.occupied { color: color-mix(in srgb, var(--accent) 70%, var(--text)); background: var(--accent2); }
+.stationBadge { display: flex; align-items: center; gap: 6px; color: #fff; background: var(--station-status); border-radius: 5px; padding: 6px 8px; font-size: .6875rem; font-weight: 700; }
+.stationBadge .statusDot { width: 6px; height: 6px; background: currentColor; }
 .stationCardName { font-size: 1rem; font-weight: 600; letter-spacing: -.025em; overflow-wrap: anywhere; }
 .stationCardDetail { color: var(--muted); font-size: .75rem; margin-top: 4px; }
 .stationCardBottom { display: flex; justify-content: space-between; align-items: center; width: 100%; margin-top: 8px; font-size: .75rem; font-weight: 500; }
 .occupied .stationCardBottom > span:first-child { font-size: 1rem; font-weight: 650; letter-spacing: -.025em; }
-.stationArrow { display: grid; place-items: center; width: 25px; height: 25px; border: 1px solid var(--border); border-radius: 5px; color: var(--muted); font-size: 16px; }
-.occupied .stationArrow { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 25%, var(--border)); background: var(--accent2); }
+.stationArrow { display: grid; place-items: center; width: 25px; height: 25px; border: 1px solid color-mix(in srgb, var(--station-status) 35%, var(--border)); border-radius: 5px; color: var(--station-status); background: color-mix(in srgb, var(--station-status) 15%, var(--surface-base)); font-size: 16px; }
 .stationMeta { display: flex; align-items: center; justify-content: space-between; padding: 2px 12px 2px 16px; border-top: 1px solid var(--border); color: var(--muted); font-size: .625rem; }
 .stationMeta > span { display: flex; align-items: center; gap: 6px; }
 .stationMeta svg { height: 12px; width: 12px; }
@@ -251,7 +251,7 @@ button:disabled { cursor: not-allowed; opacity: .5; }
   .stationCardTop { margin-bottom: 18px; gap: 4px; }
   .stationGlyph { width: 29px; height: 29px; border-radius: 6px; }
   .stationGlyph svg { width: 17px; height: 17px; }
-  .stationBadge { font-size: .5rem; padding: 4px 5px; gap: 4px; }
+  .stationBadge { font-size: .5625rem; padding: 5px 6px; gap: 4px; }
   .stationCardName { font-size: .875rem; }
   .stationCardDetail { font-size: .625rem; }
   .stationMeta { padding: 6px 8px 6px 12px; font-size: .5625rem; }

@@ -35,7 +35,7 @@ export default function OperationsDashboard({ tables, ordersMap, loading, statio
             const units = (order?.items || []).reduce((total, item) => total + Number(item.qty || 0), 0);
             return <article key={table.id} className={`stationCard${busy ? " occupied" : ""}`}>
               <button className="stationOpen" onClick={() => onOpen(table)} disabled={deleting} aria-label={`${table.name}, ${busy ? "en uso, ver cuenta" : "disponible, abrir cuenta"}`}>
-                <span className="stationCardTop"><span className="stationGlyph"><img src={stationIconUrl} alt="" aria-hidden="true" /></span><span className={`stationBadge${busy ? " occupied" : ""}`}><i className={`statusDot${busy ? " orange" : ""}`} />{busy ? "En uso" : "Disponible"}</span></span>
+                <span className="stationCardTop"><span className="stationGlyph"><img src={stationIconUrl} alt="" aria-hidden="true" /></span><span className={`stationBadge${busy ? " occupied" : ""}`}><i className="statusDot" />{busy ? "En uso" : "Disponible"}</span></span>
                 <span className="stationCardName">{table.name}</span>
                 <span className="stationCardDetail">{busy ? `${units} ${units === 1 ? "unidad" : "unidades"} · Cuenta abierta` : "Sin cuenta abierta"}</span>
                 <span className="stationCardBottom"><span>{busy ? money(orderTotal(order)) : "Abrir cuenta"}</span><span className="stationArrow" aria-hidden="true">↗</span></span>
@@ -48,7 +48,7 @@ export default function OperationsDashboard({ tables, ordersMap, loading, statio
       </section>
       <section className="dashboardMetrics" aria-label="Resumen de operación" aria-busy={loading}>
         <div className="metricCard"><span className="metricLabel">{stationLabels.plural} en total <StationIcon /></span><strong>{loading ? "—" : activeTables.length.toString().padStart(2, "0")}</strong><span className="metricFoot">Tu capacidad de atención</span></div>
-        <div className="metricCard"><span className="metricLabel">En uso <ClockIcon /></span><strong>{loading ? "—" : busyCount.toString().padStart(2, "0")}</strong><span className="metricFoot"><i className="statusDot orange" /> Cuentas en curso</span></div>
+        <div className="metricCard"><span className="metricLabel">En uso <ClockIcon /></span><strong>{loading ? "—" : busyCount.toString().padStart(2, "0")}</strong><span className="metricFoot"><i className="statusDot busy" /> Cuentas en curso</span></div>
         <div className="metricCard"><span className="metricLabel">Disponibles <StationIcon /></span><strong>{loading ? "—" : (activeTables.length - busyCount).toString().padStart(2, "0")}</strong><span className="metricFoot"><i className="statusDot" /> Listas para comenzar</span></div>
         <div className="metricCard metricAmount"><span className="metricLabel">Por cobrar <InvoicesIcon /></span><strong>{loading ? "—" : money(openOrders.reduce((total, order) => total + orderTotal(order), 0))}</strong><span className="metricFoot">Valor de las cuentas abiertas</span></div>
       </section>
