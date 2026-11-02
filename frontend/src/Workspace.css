@@ -1,4 +1,4 @@
-/* SL Business: shared surfaces, controls and responsive workspace. */
+/* Shared surfaces, controls and responsive workspace. */
 :root { --radius: 12px; --success: #39775b; --success-soft: #edf6f0; }
 body { background: var(--bg); font-family: "Segoe UI", Inter, ui-sans-serif, system-ui, sans-serif; }
 button, input, select, textarea { font: inherit; }
@@ -40,8 +40,6 @@ button:disabled { cursor: not-allowed; opacity: .5; }
 .workspaceBusinessLogo { width: 40px; height: 40px; object-fit: contain; flex-shrink: 0; }
 .workspaceBusinessName { min-width: 0; font-size: .9375rem; font-weight: 650; line-height: 1.35; overflow-wrap: anywhere; }
 .workspaceMobileLogo { display: none; }
-.slMonogram { height: 40px; width: 40px; flex-shrink: 0; border-radius: 10px; background: var(--text); color: var(--surface-base); display: flex; justify-content: center; align-items: center; font-size: 30px; font-weight: 750; letter-spacing: -3px; padding-right: 4px; }
-.slMonogram > span { color: var(--accent); }
 .brandWordmark { font-size: 1rem; white-space: nowrap; letter-spacing: -.04em; }
 .brandWordmark strong { font-weight: 600; }
 .brandWordmark small { display: block; font-size: 7px; font-weight: 650; letter-spacing: .12em; color: var(--muted); margin-top: 5px; }
@@ -161,6 +159,7 @@ button:disabled { cursor: not-allowed; opacity: .5; }
 .authLayout { width: min(1060px, 100%); display: grid; grid-template-columns: 1.15fr 1fr; border: 1px solid var(--border); border-radius: 16px; overflow: hidden; background: var(--surface-base); box-shadow: 0 18px 60px #24272b06; }
 .authIntro { position: relative; padding: 48px; display: flex; flex-direction: column; background: var(--panel2); border-right: 1px solid var(--border); overflow: hidden; }
 .authIntroBrand { display: flex; align-items: center; gap: 12px; font-size: 1.125rem; letter-spacing: -.04em; }
+.authIntroBrand img { width: 40px; height: 40px; object-fit: contain; }
 .authIntro .eyebrow { margin-top: 65px; color: var(--accent); }
 .authIntro h2 { font-size: clamp(32px, 3.5vw, 46px); line-height: 1.1; font-weight: 550; letter-spacing: -.055em; margin: 18px 0; }
 .authIntro h2 span { color: var(--accent); }
@@ -284,7 +283,7 @@ button:disabled { cursor: not-allowed; opacity: .5; }
   .authIntro h2 { font-size: 32px; margin: 12px 0 0; }
   .authIntro p, .authBlueprint, .authIntroFoot { display: none; }
   .authLayout .authPanel { padding: 30px 24px; }
-  .authIntroBrand .slMonogram { height: 32px; width: 32px; font-size: 24px; border-radius: 7px; }
+  .authIntroBrand img { width: 32px; height: 32px; }
   .authSecurity { margin-bottom: 0; }
   .skipLink { left: 10px; }
 }

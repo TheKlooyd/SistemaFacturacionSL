@@ -225,8 +225,8 @@ export default function StaffAuthGate({ children }) {
   return (
     <main className="authPage">
       <div className="authLayout">
-      <section className="authIntro" aria-label="SL Business">
-        <div className="authIntroBrand"><span className="slMonogram">sl<span>·</span></span><span>SL <strong>Business</strong></span></div>
+      <section className="authIntro" aria-label="Klooyd">
+        <div className="authIntroBrand"><img src={`${import.meta.env.BASE_URL}logoklooyd.png`} alt="" /><strong>Klooyd</strong></div>
         <div className="eyebrow">UN ESPACIO. TODO TU NEGOCIO.</div>
         <h2>El siguiente paso<br />de tu negocio<span>.</span></h2>
         <p>Ventas, inventario y clientes en un mismo lugar. Claridad para tu día a día, espacio para crecer.</p>
@@ -284,7 +284,7 @@ export default function StaffAuthGate({ children }) {
         </button>
 
         {error && <p role="alert" className="authError">{error}</p>}
-        <p className="authSecurity">Un espacio privado para ti y tu equipo.<br />SL Business · Sistema de facturación</p>
+        <p className="authSecurity">Un espacio privado para ti y tu equipo.<br />Klooyd · Sistema de facturación</p>
       </form>
       </div>
     </main>

@@ -16,7 +16,7 @@ const lifecycleMigration = await readFile(
 const config = await readFile("supabase/config.toml", "utf8");
 const mobileView = await readFile("frontend/src/MobileOrderView.jsx", "utf8");
 const ordersStore = await readFile("frontend/src/ordersStore.js", "utf8");
-const appView = await readFile("frontend/src/App.jsx", "utf8");
+const dashboardView = await readFile("frontend/src/OperationsDashboard.jsx", "utf8");
 const customerQrView = await readFile("frontend/src/CustomerQrOrderView.jsx", "utf8");
 const qrOrderFunction = await readFile("supabase/functions/qr-order/index.ts", "utf8");
 
@@ -57,7 +57,8 @@ test("el frontend móvil no muestra mesas inactivas y propaga errores al cerrar"
   assert.match(mobileView, /table\.isActive !== false/);
   assert.match(ordersStore, /throw error/);
   assert.match(ordersStore, /order\.items\.length === 0[\s\S]*await clearOrder\(tableId\)/);
-  assert.match(appView, /return\s*\(?\s*order\?\.status === "OPEN"/);
+  // La ocupación se calcula en el dashboard, incluso para cuentas abiertas sin productos.
+  assert.match(dashboardView, /const isBusy\s*=\s*table\s*=>\s*ordersMap\[String\(table\.id\)\]\?\.status === "OPEN"/);
 });
 
 test("gaseosa grande siempre conserva Gas Familiar entre los candidatos", () => {
