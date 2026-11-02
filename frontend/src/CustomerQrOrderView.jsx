@@ -12,16 +12,18 @@ function money(value) {
   }).format(value || 0);
 }
 
-const TERMINAL_MESSAGES = {
-  invalid: "Este código no está disponible.",
-  inactive: "Este negocio o esta mesa no están disponibles para pedidos en este momento.",
-  occupied: "Esta mesa ya tiene un pedido en curso. Para agregar o modificar productos, llama a un mesero.",
-  draft_elsewhere: "Ya existe una sesión activa para esta mesa desde otro dispositivo.",
-  expired: "Tu borrador venció. Escanea nuevamente el código QR para empezar un pedido.",
-  preview_limit: "Se alcanzó el límite de revisiones para esta sesión. Llama a un mesero para continuar.",
-  submitted: "Tu pedido fue enviado correctamente. Para agregar o modificar productos, llama a un mesero.",
-  closed: "La cuenta anterior ya fue cerrada. Puedes comprobar la mesa para iniciar un pedido nuevo.",
-};
+function getTerminalMessages(stationSingular) {
+  return {
+    invalid: "Este código no está disponible.",
+    inactive: "No hay disponibilidad para pedidos en este negocio en este momento.",
+    occupied: `${stationSingular} en uso: ya tiene un pedido en curso. Para agregar o modificar productos, contacta al personal.`,
+    draft_elsewhere: `Ya existe una sesión activa en ${stationSingular.toLowerCase()} desde otro dispositivo.`,
+    expired: "Tu borrador venció. Escanea nuevamente el código QR para empezar un pedido.",
+    preview_limit: "Se alcanzó el límite de revisiones para esta sesión. Contacta al personal para continuar.",
+    submitted: "Tu pedido fue enviado correctamente. Para agregar o modificar productos, contacta al personal.",
+    closed: `La cuenta anterior ya fue cerrada. Escanea el QR asignado a ${stationSingular.toLowerCase()} para iniciar un pedido nuevo.`,
+  };
+}
 
 export default function CustomerQrOrderView({ qrToken }) {
   // Scanning another QR must discard all in-memory state from the previous table.
@@ -38,6 +40,8 @@ function QrOrderSession({ qrToken }) {
   const [feedback, setFeedback] = useState("");
   const [info, setInfo] = useState({ state: "loading" });
   const [infoAttempt, setInfoAttempt] = useState(0);
+  const stationSingular = info.branding?.stationSingular || "Mesa";
+  const terminalMessages = getTerminalMessages(stationSingular);
 
   useEffect(() => {
     let cancelled = false;
@@ -221,7 +225,7 @@ function QrOrderSession({ qrToken }) {
     }
   }
 
-  const terminalMessage = TERMINAL_MESSAGES[state.phase];
+  const terminalMessage = terminalMessages[state.phase];
   const canCheckAgain = [
     "occupied",
     "draft_elsewhere",
@@ -244,7 +248,7 @@ function QrOrderSession({ qrToken }) {
               setInfoAttempt((attempt) => attempt + 1);
             }}>Reintentar</button>
           </>
-        ) : info.state !== "ok" ? <p>{TERMINAL_MESSAGES[info.state] || TERMINAL_MESSAGES.invalid}</p> : state.phase === "ready" ? (
+        ) : info.state !== "ok" ? <p>{terminalMessages[info.state] || terminalMessages.invalid}</p> : state.phase === "ready" ? (
           <>
             <h1>Pedido por QR</h1>
             <p>Pulsa el botón para comenzar tu pedido.</p>
@@ -262,7 +266,7 @@ function QrOrderSession({ qrToken }) {
             </button>
           </>
         ) : state.phase === "loading" ? (
-          <p>Cargando mesa...</p>
+          <p>Cargando {stationSingular.toLowerCase()}...</p>
         ) : terminalMessage ? (
           <>
             <h1>{state.phase === "submitted" ? "Pedido enviado" : "Pedido no disponible"}</h1>
@@ -284,7 +288,7 @@ function QrOrderSession({ qrToken }) {
           </>
         ) : (
           <>
-            <p className="qrTable">Mesa {state.mesa_number}</p>
+            <p className="qrTable">{stationSingular} {state.mesa_number}</p>
             <h1>Haz tu pedido</h1>
 
             <textarea
@@ -296,7 +300,7 @@ function QrOrderSession({ qrToken }) {
                 setPreview(null);
                 setFeedback("");
               }}
-              placeholder="Ej: una pizza grande hawaiana y una gaseosa familiar de manzana"
+              placeholder="Ej: cambio de aceite, ajuste de frenos y filtro de aceite"
               disabled={state.phase !== "draft"}
             />
 

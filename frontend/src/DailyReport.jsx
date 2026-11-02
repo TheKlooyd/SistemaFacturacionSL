@@ -9,6 +9,8 @@ import {
 import { openPrintWindow } from "./print";
 import { ticketCierre } from "./printTemplates";
 import { getBusinessBranding } from "./businessBranding";
+import { formatStationName } from "./stationName";
+import { StatusIcon } from "./ActionButtons";
 
 function formatCOP(value) {
   return new Intl.NumberFormat("es-CO").format(value || 0);
@@ -426,7 +428,7 @@ export default function DailyReport({ onBack }) {
     try {
       const savedClose = await saveDailyClose(closeObj);
       setClose(savedClose);
-      alert(`✅ Cierre diario guardado para ${date}`);
+      alert(`Cierre diario guardado para ${date}`);
     } catch {
       setErrorText("No se pudo confirmar el guardado del cierre. Recarga para comprobar su estado antes de reintentar.");
     } finally {
@@ -437,13 +439,13 @@ export default function DailyReport({ onBack }) {
 
   async function handleClearPayments() {
     const ok = confirm(
-      "⚠️ Esto borra TODOS los pagos guardados (historial). ¿Seguro?"
+      "Esto borra TODOS los pagos guardados (historial). ¿Seguro?"
     );
     if (!ok) return;
 
     await Promise.all([clearPayments(), deleteDailyClose()]);
     await reload();
-    alert("Historial borrado ✅");
+    alert("Historial borrado.");
   }
 
   return (
@@ -481,17 +483,20 @@ export default function DailyReport({ onBack }) {
         </div>
         {closeForSelectedDate && closeSnapshotIsCurrent && (
           <div className="card" style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 18px", color: "var(--brown)", fontWeight: 700 }}>
-            ✅ Cierre generado (snapshot) para esta fecha
+            <StatusIcon style={{ width: 18, height: 18, flexShrink: 0 }} />
+            Cierre generado (snapshot) para esta fecha
           </div>
         )}
         {closeForSelectedDate && !closeSnapshotIsCurrent && (
           <div className="card" style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 18px", color: "#8a5a00", fontWeight: 700 }}>
-            ⚠️ El cierre guardado quedó desactualizado. Regénéralo para guardar los totales corregidos.
+            <StatusIcon kind="warning" style={{ width: 18, height: 18, flexShrink: 0 }} />
+            El cierre guardado quedó desactualizado. Regénéralo para guardar los totales corregidos.
           </div>
         )}
         {probableDuplicates.length > 0 && (
           <div className="card" style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 18px", color: "#8a5a00", fontWeight: 700 }}>
-            ⚠️ Se excluyeron {probableDuplicates.length} pago(s) probablemente duplicados del cierre. Revísalos en Admin facturas.
+            <StatusIcon kind="warning" style={{ width: 18, height: 18, flexShrink: 0 }} />
+            Se excluyeron {probableDuplicates.length} pago(s) probablemente duplicados del cierre. Revísalos en Admin facturas.
           </div>
         )}
       </div>
@@ -558,7 +563,7 @@ export default function DailyReport({ onBack }) {
 
         {/* Columna 3 — Top productos */}
         <div className="card" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          <h3 style={{ margin: 0, fontSize: 13, textTransform: "uppercase", letterSpacing: 1, opacity: 0.55 }}>Top productos</h3>
+          <h3 style={{ margin: 0, fontSize: 13, textTransform: "uppercase", letterSpacing: 1, opacity: 0.55 }}>Top productos y servicios</h3>
           {topProducts.length === 0 ? (
             <div style={{ opacity: 0.55, fontSize: 14 }}>Sin productos para esta fecha.</div>
           ) : (
@@ -609,7 +614,11 @@ export default function DailyReport({ onBack }) {
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                   <div>
                     <div style={{ fontWeight: 900, fontSize: 15 }}>
-                      {p.tableName || `Mesa ${p.tableId}`}
+                      {p.isDelivery
+                        ? p.deliveryClient?.name
+                          ? `Cliente: ${p.deliveryClient.name}`
+                          : "Clientes"
+                        : formatStationName(p.tableName, p.tableId)}
                     </div>
                     <div style={{ fontSize: 12, opacity: 0.55, marginTop: 1 }}>{fmtDateTime(p.createdAt)}</div>
                   </div>
@@ -662,4 +671,3 @@ export default function DailyReport({ onBack }) {
     </div>
   );
 }
-

@@ -5,6 +5,7 @@ import {
   updateClient,
   deleteClient,
 } from "./clientsStore";
+import { LocationIcon, PhoneIcon } from "./ActionButtons";
 
 export default function ClientAdmin({ onBack }) {
   const [clients, setClients] = useState([]);
@@ -166,8 +167,14 @@ export default function ClientAdmin({ onBack }) {
                 <div className="listItem" key={c.id}>
                   <div>
                     <div style={{ fontWeight: 900 }}>{c.name}</div>
-                    <div style={{ opacity: 0.8, fontSize: 13 }}>📞 {c.phone}</div>
-                    <div style={{ opacity: 0.8, fontSize: 13 }}>📍 {c.address}</div>
+                    <div style={{ opacity: 0.8, fontSize: 13, display: "flex", alignItems: "center", gap: 6 }}>
+                      <PhoneIcon style={{ width: 14, height: 14 }} />
+                      {c.phone}
+                    </div>
+                    <div style={{ opacity: 0.8, fontSize: 13, display: "flex", alignItems: "center", gap: 6 }}>
+                      <LocationIcon style={{ width: 14, height: 14 }} />
+                      {c.address}
+                    </div>
                   </div>
                   <div style={{ display: "flex", gap: 8 }}>
                     <button className="btn" onClick={() => startEdit(c)}>

@@ -1,9 +1,25 @@
 import { supabase } from "./supabaseClient";
+import { setStationConfiguration } from "./stationName";
 
 let activeTenant = null;
 
 export function getActiveTenant() {
   return activeTenant;
+}
+
+export function updateActiveTenantConfiguration(patch) {
+  if (!activeTenant?.configuracion) {
+    throw new Error("No hay una configuración de negocio activa.");
+  }
+
+  activeTenant = {
+    ...activeTenant,
+    configuracion: {
+      ...activeTenant.configuracion,
+      ...patch,
+    },
+  };
+  setStationConfiguration(activeTenant.configuracion);
 }
 
 export function requireActiveTenant() {
@@ -22,6 +38,7 @@ export function requireNegocioId() {
 
 export function clearActiveTenant() {
   activeTenant = null;
+  setStationConfiguration(null);
 }
 
 export async function resolveTenantForSession(session) {
@@ -105,7 +122,7 @@ export async function resolveTenantForSession(session) {
     supabase
       .from("negocio_configuracion")
       .select(
-        "negocio_id, nombre_comercial, logo_url, nit, direccion, telefono, payment_info, timezone, moneda, reglas_pedidos"
+        "negocio_id, nombre_comercial, logo_url, nit, direccion, telefono, payment_info, timezone, moneda, reglas_pedidos, tipo_negocio, nombre_estacion_singular, nombre_estacion_plural"
       )
       .eq(
         "negocio_id",
@@ -178,6 +195,7 @@ export async function resolveTenantForSession(session) {
     suscripcion,
     configuracion,
   };
+  setStationConfiguration(configuracion);
 
   return activeTenant;
 }

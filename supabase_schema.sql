@@ -36,7 +36,13 @@ CREATE TABLE IF NOT EXISTS productos (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   category_id UUID REFERENCES categorias(id) ON DELETE SET NULL,
   name        TEXT NOT NULL,
-  price       NUMERIC(12, 2) NOT NULL DEFAULT 0
+  price       NUMERIC(12, 2) NOT NULL DEFAULT 0,
+  item_type   TEXT NOT NULL DEFAULT 'service'
+              CHECK (item_type IN ('service', 'product')),
+  purchase_price NUMERIC(12, 2) NOT NULL DEFAULT 0
+                 CHECK (purchase_price >= 0),
+  stock_quantity NUMERIC(12, 2) NOT NULL DEFAULT 0
+                 CHECK (stock_quantity >= 0)
 );
 
 -- Clientes (delivery)

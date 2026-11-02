@@ -32,6 +32,7 @@ export default function ProductAdmin({ onBack }) {
 
   const [name, setName] = useState("");
   const [price, setPrice] = useState("");
+  const [itemType, setItemType] = useState("service");
 
   const [editingId, setEditingId] = useState(null);
   const isEditing = useMemo(() => Boolean(editingId), [editingId]);
@@ -55,6 +56,7 @@ export default function ProductAdmin({ onBack }) {
   function resetProductForm() {
     setName("");
     setPrice("");
+    setItemType("service");
     setEditingId(null);
   }
 
@@ -105,33 +107,41 @@ export default function ProductAdmin({ onBack }) {
       return alert("Pon un precio válido (mayor a 0).");
     }
 
-    if (isEditing) {
-      const next = await updateProduct(editingId, {
+    try {
+      if (isEditing) {
+        const next = await updateProduct(editingId, {
+          name: cleanName,
+          price: numericPrice,
+          category_id: selectedCatId,
+          item_type: itemType,
+        });
+        persistProducts(next);
+        resetProductForm();
+        return;
+      }
+
+      const newProduct = {
+        id: crypto.randomUUID(),
+        category_id: selectedCatId,
         name: cleanName,
         price: numericPrice,
-        category_id: selectedCatId,
-      });
+        item_type: itemType,
+      };
+
+      const next = await addProduct(newProduct);
       persistProducts(next);
       resetProductForm();
-      return;
+    } catch (error) {
+      console.error("ProductAdmin save error:", error);
+      alert(error?.message || "No se pudo guardar el producto.");
     }
-
-    const newProduct = {
-      id: crypto.randomUUID(),
-      category_id: selectedCatId,
-      name: cleanName,
-      price: numericPrice,
-    };
-
-    const next = await addProduct(newProduct);
-    persistProducts(next);
-    resetProductForm();
   }
 
   function startEdit(p) {
     setEditingId(p.id);
     setName(p.name);
     setPrice(String(p.price));
+    setItemType(p.item_type || "service");
     if (p.category_id) setSelectedCatId(p.category_id);
   }
 
@@ -179,7 +189,7 @@ export default function ProductAdmin({ onBack }) {
           <form className="rowForm" onSubmit={handleCreateCategory}>
             <input
               className="input"
-              placeholder="Ej: Pizzas"
+              placeholder="Ej: Productos, repuestos o servicios"
               value={newCatName}
               onChange={(e) => setNewCatName(e.target.value)}
             />
@@ -222,6 +232,16 @@ export default function ProductAdmin({ onBack }) {
           </div>
 
           <form className="productForm" onSubmit={handleSubmitProduct}>
+            <label className="label">Tipo</label>
+            <select
+              className="input"
+              value={itemType}
+              onChange={(e) => setItemType(e.target.value)}
+            >
+              <option value="service">Servicio</option>
+              <option value="product">Producto</option>
+            </select>
+
             <label className="label">Categoría</label>
             <select
               className="input"
@@ -237,7 +257,7 @@ export default function ProductAdmin({ onBack }) {
             <label className="label">Nombre</label>
             <input
               className="input"
-              placeholder="Ej: Pizza Hawaiana"
+              placeholder="Ej: Producto o servicio"
               value={name}
               onChange={(e) => setName(e.target.value)}
             />

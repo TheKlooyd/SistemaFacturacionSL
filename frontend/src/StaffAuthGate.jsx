@@ -224,39 +224,52 @@ export default function StaffAuthGate({ children }) {
 
   return (
     <main className="authPage">
+      <div className="authLayout">
+      <section className="authIntro" aria-label="SL Business">
+        <div className="authIntroBrand"><span className="slMonogram">sl<span>·</span></span><span>SL <strong>Business</strong></span></div>
+        <div className="eyebrow">UN ESPACIO. TODO TU NEGOCIO.</div>
+        <h2>El siguiente paso<br />de tu negocio<span>.</span></h2>
+        <p>Ventas, inventario y clientes en un mismo lugar. Claridad para tu día a día, espacio para crecer.</p>
+        <svg className="authBlueprint" viewBox="0 0 380 180" fill="none" aria-hidden="true">
+          <g stroke="currentColor" strokeWidth=".7" opacity=".15"><path d="M0 140 190 40l190 100M0 160 190 60l190 100M0 180 190 80l190 100M40 180 230 80M80 180 270 80M120 180 310 80M160 180 350 80M220 180 30 80M260 180 70 80M300 180 110 80M340 180 150 80" /></g>
+          <g stroke="currentColor" strokeWidth="1.2"><path d="m115 72 75-40 75 40-75 40-75-40Z" /><path d="M115 72v60l75 40 75-40V72M190 112v60M152 52l75 40v22" /><path d="m137 115 24 13v15l-24-13v-15Z" /><path d="M102 52V36h16M262 36h16v16M102 148v16h16M262 164h16v-16" opacity=".5" /></g>
+          <g fill="currentColor"><circle cx="190" cy="32" r="2" /><circle cx="115" cy="132" r="2" /><circle cx="265" cy="132" r="2" /></g>
+        </svg>
+        <div className="authIntroFoot">FACTURACIÓN &nbsp; / &nbsp; INVENTARIO &nbsp; / &nbsp; GESTIÓN</div>
+      </section>
       <form
         className="authPanel"
         onSubmit={signIn}
       >
-        <img
-          src={`${
-            import.meta.env.BASE_URL
-          }logoklooyd.png`}
-          alt="Sistema de facturación"
-          className="qrLogo"
-        />
+        <div className="eyebrow">TU ESPACIO DE TRABAJO</div>
+        <h1>Te damos la bienvenida</h1>
+        <p className="authSubtitle">Ingresa a tu cuenta para continuar con tu negocio.</p>
 
-        <h1>Acceso al sistema</h1>
-
+        <label className="label" htmlFor="staff-email">Correo electrónico</label>
         <input
+          id="staff-email"
+          autoComplete="username"
           className="input"
           type="email"
           value={email}
           onChange={(event) =>
             setEmail(event.target.value)
           }
-          placeholder="Correo"
+          placeholder="nombre@tunegocio.com"
           required
         />
 
+        <label className="label" htmlFor="staff-password">Contraseña</label>
         <input
+          id="staff-password"
+          autoComplete="current-password"
           className="input"
           type="password"
           value={password}
           onChange={(event) =>
             setPassword(event.target.value)
           }
-          placeholder="Contraseña"
+          placeholder="Ingresa tu contraseña"
           required
         />
 
@@ -267,11 +280,13 @@ export default function StaffAuthGate({ children }) {
         >
           {checkingAccess
             ? "Comprobando..."
-            : "Ingresar"}
+            : "Ingresar a mi negocio →"}
         </button>
 
-        {error && <p>{error}</p>}
+        {error && <p role="alert" className="authError">{error}</p>}
+        <p className="authSecurity">Un espacio privado para ti y tu equipo.<br />SL Business · Sistema de facturación</p>
       </form>
+      </div>
     </main>
   );
 }

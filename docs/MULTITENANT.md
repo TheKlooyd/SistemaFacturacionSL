@@ -1,45 +1,55 @@
 # Conversión a varios negocios — etapa 1
 
-Esta etapa agrega la estructura administrativa. **Todavía no habilita el POS
-para otros restaurantes.** Las tablas operativas conservan las políticas
-anteriores: cualquier usuario Auth registrado puede acceder a Sabor Latino.
-No crear usuarios de restaurantes nuevos hasta terminar el aislamiento completo.
+La plataforma admite varios negocios y valida el negocio, la membresía y la
+suscripción activa al iniciar una sesión del POS. Las altas se realizan desde
+`https://klooyd.com/admin`, reservado a administradores de plataforma; no crear cuentas de negocio
+por inserciones manuales ni exponer credenciales privilegiadas al navegador.
 
 ## Implementado
 
-- `negocios`: identidad y estado de cada restaurante.
+- `negocios`: identidad y estado de cada negocio.
 - `negocio_usuarios`: membresías y rol por restaurante. Un usuario puede pertenecer
   a varios negocios; seleccionar uno no sustituirá la validación de permisos.
 - `suscripciones`: estado actual del servicio por negocio, separado de `pagos`
   (que contiene las ventas del restaurante). Solo propietarios/administradores
   activos pueden leer su suscripción.
-- `negocio_configuracion`: información comercial, moneda, zona horaria y reglas
-  de interpretación del catálogo. Nunca guardar claves API aquí.
+- `negocio_configuracion`: información comercial, tipo de negocio, moneda, zona
+  horaria, reglas de interpretación y nombres singular/plural de las estaciones.
+  Nunca guardar claves API aquí. Los restaurantes usan Mesa/Mesas por defecto y
+  los talleres de motos Estación/Estaciones.
 - `sl_private.platform_admins`: administradores de la plataforma. El esquema no
   debe añadirse a los esquemas expuestos de la Data API.
-- Todas las tablas nuevas tienen RLS. Se revocan los permisos automáticos de
-  escritura para `anon` y `authenticated`; solo el backend privilegiado escribe.
+- Todas las tablas nuevas tienen RLS. Las escrituras administrativas pasan por
+  el backend; propietario y administrador solo pueden modificar las dos columnas
+  de nombre de estación permitidas.
 - Se registra Sabor Latino y su configuración básica sin asignar usuarios,
   suscripciones, privilegios de plataforma ni copiar/modificar sus registros.
 
-No hay altas administrativas por API todavía. El futuro endpoint debe validar
-el JWT, comprobar `sl_private.platform_admins.is_active` con el backend y solo
-entonces ejecutar Auth Admin y las escrituras. Tener una sesión válida no basta.
+El endpoint administrativo valida el JWT y comprueba
+`sl_private.platform_admins.is_active` antes de crear el usuario propietario y
+el negocio. El formulario permite Restaurante y Taller de motos; cada tipo elige
+su icono y sus nombres iniciales de estación. El POS permite cambiar los nombres
+en Configuración, mientras que los colores y el tamaño de letra se guardan en el
+navegador. Tener una sesión válida no basta para usar la administración.
 Las claves de servidor nunca se entregan al frontend.
 
-## Semántica que deberá respetar la siguiente etapa
+## Seguridad y operación
 
 - La membresía se comprueba en base de datos; no se autoriza mediante datos de
   `user_metadata` que el usuario pueda editar.
-- Para operar se comprobarán negocio activo, membresía activa y suscripción
-  activa dentro de su período. En esta etapa esas condiciones aún no se aplican
-  al POS existente. La fecha final nula permite una vigencia sin límite; cualquier
+- El POS comprueba negocio activo, membresía activa y suscripción activa dentro
+  de su período. La fecha final nula permite una vigencia sin límite; cualquier
   concesión de ese tipo debe ser una decisión explícita de administración.
 - Una suscripción ausente/pendiente no debe dar acceso a un nuevo negocio.
 - Suspender el servicio conserva la información. La política de consulta del
   historial tras suspensión debe definirse antes de activar el control del POS.
 - No se promueve la cuenta actual del restaurante a administrador de plataforma.
   Falta identificar el correo que usará el propietario de la plataforma.
+
+Antes de habilitar los nuevos tipos en producción, aplique
+`20261102173151_business_types_and_station_labels.sql` y despliegue las Edge
+Functions junto con el frontend. La migración es aditiva; no la ejecute de nuevo
+si ya aparece en el historial de Supabase.
 
 ## Pruebas locales sin usar producción
 
@@ -48,15 +58,13 @@ Desde la raíz:
 ```sh
 npm ci
 npm run test:tenancy
+npm run test:launch
 ```
 
 PGlite ejecuta PostgreSQL en un entorno efímero con roles y datos ficticios.
-Las pruebas reconstruyen el esquema base y las dos migraciones QR, agregan la
-columna `productos.size` y activan las doce mesas como en la base revisada.
-Verifican conservación de datos/políticas anteriores, aislamiento de metadatos
-entre dos negocios, roles, denegación de escrituras y desactivación de membresías.
-No prueban Supabase Auth HTTP, Edge Functions, Realtime ni el aislamiento de
-productos/ventas: esos componentes siguen pendientes.
+`test:tenancy` verifica la fundación multinegocio y `test:launch` ejecuta la
+cadena de migraciones y prueba los tipos de negocio, permisos de configuración,
+QR y controles administrativos. Estas pruebas no conectan con producción.
 
 ## Diferencias verificadas antes de comenzar
 
@@ -81,7 +89,8 @@ productos/ventas: esos componentes siguen pendientes.
    frontend. Validar pertenencia también dentro de los JSON de pedidos.
 5. Sustituir las políticas globales en un despliegue coordinado y comprobar
    aislamiento con dos negocios en todos los caminos de lectura/escritura.
-6. Construir administración de negocios/usuarios y conectar vigencia del servicio.
+6. Mantener la administración de negocios y extender su lista de tipos cuando
+   se incorporen nuevas categorías.
 
 La migración de esta etapa es aditiva. No volver a pegarla manualmente si ya
 está registrada en Supabase: comprobar el historial antes de desplegar.

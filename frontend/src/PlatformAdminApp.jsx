@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "./supabaseClient";
 import BusinessEditor from "./BusinessEditor";
 import { printBusinessQrs } from "./qrPrint";
@@ -262,6 +262,12 @@ function BusinessCard({ business, onChanged }) {
           <b>Nombre comercial:</b>{" "}
           {business.configuracion?.nombre_comercial || "—"}
         </div>
+        <div>
+          <b>Tipo de negocio:</b>{" "}
+          {business.configuracion?.tipo_negocio === "taller_motos"
+            ? "Taller de motos"
+            : "Restaurante"}
+        </div>
       </div>
 
       {editing && <BusinessEditor business={business} onCancel={() => setEditing(false)} onSaved={async () => { await onChanged(); setEditing(false); }} />}
@@ -303,16 +309,12 @@ function BusinessCard({ business, onChanged }) {
 }
 
 function CreateBusinessForm({ onCreated }) {
-  const defaultQrBase = useMemo(
-    () => new URL(import.meta.env.BASE_URL, window.location.origin).toString(),
-    []
-  );
-
   const [form, setForm] = useState({
     nombre: "",
     slug: "",
     ownerEmail: "",
     ownerPassword: "",
+    tipoNegocio: "restaurante",
     planCode: "manual",
     endsAt: "",
     nombreComercial: "", 
@@ -325,7 +327,7 @@ function CreateBusinessForm({ onCreated }) {
     moneda: "COP",
     reglasPedidos: "",
     tableCount: 12,
-    qrBaseUrl: defaultQrBase,
+    qrBaseUrl: "https://klooyd.com/",
   });
 
   const [slugTouched, setSlugTouched] = useState(false);
@@ -392,12 +394,17 @@ function CreateBusinessForm({ onCreated }) {
             form.nombreComercial || form.nombre,
           logo_url:
             result.logoUrl || "",
+          tipo_negocio: form.tipoNegocio,
+          nombre_estacion_singular:
+            form.tipoNegocio === "taller_motos" ? "Estación" : "Mesa",
+          nombre_estacion_plural:
+            form.tipoNegocio === "taller_motos" ? "Estaciones" : "Mesas",
         },
       });
 
       if (result.logoUploadError) {
         alert(
-          `El restaurante fue creado correctamente, pero hubo un problema con el logo:\n\n${result.logoUploadError}`
+          `El negocio fue creado correctamente, pero hubo un problema con el logo:\n\n${result.logoUploadError}`
         );
       }
 
@@ -420,9 +427,9 @@ function CreateBusinessForm({ onCreated }) {
     >
       <div style={{ marginBottom: 18 }}>
         <div style={{ fontSize: 13, opacity: 0.55, fontWeight: 800 }}>
-          NUEVO CLIENTE
+          NUEVO NEGOCIO
         </div>
-        <h2 style={{ margin: "4px 0 0" }}>Crear restaurante</h2>
+        <h2 style={{ margin: "4px 0 0" }}>Crear negocio</h2>
       </div>
 
       <div
@@ -455,6 +462,19 @@ function CreateBusinessForm({ onCreated }) {
               onChange={(e) => setValue("nombre", e.target.value)}
               required
             />
+          </label>
+
+          <label style={fieldStyle}>
+            <span>Tipo de negocio *</span>
+            <select
+              style={inputStyle}
+              value={form.tipoNegocio}
+              onChange={(e) => setValue("tipoNegocio", e.target.value)}
+              required
+            >
+              <option value="restaurante">Restaurante</option>
+              <option value="taller_motos">Taller de motos</option>
+            </select>
           </label>
 
           <label style={fieldStyle}>
@@ -574,7 +594,7 @@ function CreateBusinessForm({ onCreated }) {
           </label>
 
           <label style={fieldStyle}>
-            <span>Mesas</span>
+            <span>{form.tipoNegocio === "taller_motos" ? "Estaciones" : "Mesas"}</span>
             <input
               style={inputStyle}
               type="number"
@@ -652,7 +672,7 @@ function CreateBusinessForm({ onCreated }) {
             color: "#fff",
           }}
         >
-          {busy ? "Creando restaurante..." : "Crear restaurante completo"}
+          {busy ? "Creando negocio..." : "Crear negocio"}
         </button>
       </form>
 
@@ -665,14 +685,14 @@ function CreateBusinessForm({ onCreated }) {
             background: "rgba(10,150,70,.08)",
           }}
         >
-          <b>Restaurante creado correctamente.</b>
+          <b>Negocio creado correctamente.</b>
           <button type="button" disabled={busy} style={{ ...buttonStyle, margin: 10 }} onClick={async () => {
             setBusy(true);
             try {
               await printBusinessQrs({ id: created.business.negocio_id, nombre: created.business.nombre, configuracion: created.printConfig }, created);
             } catch (error) { alert(error.message || "No se pudieron imprimir los QR."); }
             finally { setBusy(false); }
-          }}>Imprimir QR de las mesas</button>
+          }}>Imprimir QR de {created.printConfig?.nombre_estacion_plural?.toLowerCase() || "los códigos"}</button>
 
           <div style={{ marginTop: 8 }}>
             {created.qr_codes?.length || 0} códigos QR fueron registrados.
@@ -827,7 +847,7 @@ export default function PlatformAdminApp() {
           <div style={{ fontSize: 13, opacity: 0.55, fontWeight: 800 }}>
             PLATFORM ADMIN
           </div>
-          <h1 style={{ margin: "5px 0 0" }}>Restaurantes</h1>
+          <h1 style={{ margin: "5px 0 0" }}>Negocios</h1>
           <div style={{ opacity: 0.6, marginTop: 5 }}>{adminEmail}</div>
         </div>
 

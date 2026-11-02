@@ -1,4 +1,5 @@
 import { resolveLogoUrl } from "./branding.js";
+import { formatStationName } from "./stationName.js";
 
 function formatCOP(n) {
   return new Intl.NumberFormat("es-CO").format(Number(n) || 0);
@@ -45,8 +46,13 @@ function baseStyles() {
   </style>`;
 }
 
-export function ticketCuenta({ branding, tableName, items, subtotal, tipAmount, discountAmount = 0, totalWithTip, isDelivery = false }) {
+export function ticketCuenta({ branding, tableName, items, subtotal, tipAmount, discountAmount = 0, totalWithTip, isDelivery = false, deliveryClient = null }) {
   const dt = new Date().toLocaleString("es-CO");
+  const contextLabel = isDelivery
+    ? deliveryClient?.name
+      ? `Cliente: ${deliveryClient.name}`
+      : "Clientes"
+    : formatStationName(tableName);
 
   const itemsHtml = (items || [])
     .map((i) => {
@@ -65,7 +71,7 @@ export function ticketCuenta({ branding, tableName, items, subtotal, tipAmount, 
   <html><head>${baseStyles()}</head>
   <body>
     ${businessHeader(branding)}
-    <div class="sub">${esc(isDelivery ? "🛵 DELIVERY" : tableName)} — ${esc(dt)}</div>
+    <div class="sub">${esc(contextLabel)} — ${esc(dt)}</div>
     <div class="hr"></div>
 
     ${itemsHtml}
@@ -80,12 +86,17 @@ export function ticketCuenta({ branding, tableName, items, subtotal, tipAmount, 
       <div class="right">$${formatCOP(totalWithTip)}</div>
     </div>
     <div class="hr"></div>
-    <div style="text-align:center;font-size:13px;margin-top:6px;">Gracias por su visita</div>
+    <div style="text-align:center;font-size:13px;margin-top:6px;">Gracias por su confianza</div>
   </body></html>`;
 }
 
-export function ticketComanda({ branding, tableName, createdAt, items }) {
+export function ticketComanda({ branding, tableName, isClientMode = false, clientName = "", createdAt, items }) {
   const dt = new Date(createdAt).toLocaleString("es-CO");
+  const contextLabel = isClientMode
+    ? clientName
+      ? `Cliente: ${clientName}`
+      : "Clientes"
+    : formatStationName(tableName);
   const itemsHtml = (items || [])
     .map((i) => {
       const noteHtml = i.note ? `<div class="small" style="padding-left:12px;font-style:italic;">↳ ${esc(i.note)}</div>` : "";
@@ -97,8 +108,8 @@ export function ticketComanda({ branding, tableName, createdAt, items }) {
   <html><head>${baseStyles()}</head>
   <body>
     ${businessHeader(branding, false)}
-    <div class="title">COMANDA COCINA</div>
-    <div class="sub">${esc(tableName)} — ${esc(dt)}</div>
+    <div class="title">TICKET</div>
+    <div class="sub">${esc(contextLabel)} — ${esc(dt)}</div>
     <div class="hr"></div>
     ${itemsHtml}
     <div class="hr"></div>
@@ -143,16 +154,21 @@ export function ticketFactura({
     })
     .join("");
 
-  const deliveryHtml = isDelivery && deliveryClient
+  const clientHtml = isDelivery && deliveryClient
     ? `
     <div class="hr"></div>
-    <div class="bold" style="font-size:15px;">DATOS DE ENTREGA</div>
+    <div class="bold" style="font-size:15px;">DATOS DEL CLIENTE</div>
     ${line("Cliente", esc(deliveryClient.name || ""))}
     ${line("Teléfono", esc(deliveryClient.phone || ""))}
     ${line("Dirección", esc(deliveryClient.address || ""))}`
     : isDelivery
-    ? `<div class="hr"></div><div class="small">DELIVERY — sin cliente asignado</div>`
+    ? `<div class="hr"></div><div class="small">CLIENTES — sin cliente asignado</div>`
     : "";
+  const contextLabel = isDelivery
+    ? deliveryClient?.name
+      ? `Cliente: ${deliveryClient.name}`
+      : "Clientes"
+    : formatStationName(tableName);
 
   return `
   <html><head>${baseStyles()}</head>
@@ -160,8 +176,8 @@ export function ticketFactura({
     ${businessHeader(branding)}
 
     <div class="hr"></div>
-    ${line(`${isDelivery ? "🛵 DELIVERY" : tableName} — ${dt}`, "")}
-    ${deliveryHtml}
+    ${line(`${contextLabel} — ${dt}`, "")}
+    ${clientHtml}
     <div class="hr"></div>
 
     ${itemsHtml}
@@ -230,12 +246,10 @@ export function ticketCierre({ branding, dateISO, summary, breakdown, topProduct
     ${byMethod || `<div class="small">Sin datos</div>`}
 
     <div class="hr"></div>
-    <div class="bold">Top productos</div>
+    <div class="bold">Top productos y servicios</div>
     ${top || `<div class="small">Sin datos</div>`}
 
     <div class="hr"></div>
     <div class="small">Mini POS</div>
   </body></html>`;
 }
-
-

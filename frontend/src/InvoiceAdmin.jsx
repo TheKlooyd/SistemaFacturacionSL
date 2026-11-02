@@ -4,6 +4,8 @@ import { loadProducts } from "./productsStore";
 import { openPrintWindow } from "./print";
 import { ticketFactura } from "./printTemplates";
 import { getBusinessBranding } from "./businessBranding";
+import { DeleteIcon, InvoicesIcon, PrintIcon, SaveIcon } from "./ActionButtons";
+import { formatStationName } from "./stationName";
 
 function formatCOP(value) {
   return new Intl.NumberFormat("es-CO").format(value || 0);
@@ -164,7 +166,7 @@ export default function InvoiceAdmin({ onBack }) {
       await openPrintWindow(
         ticketFactura({
           branding,
-          tableName: payment.isDelivery ? "DELIVERY" : (payment.tableName || `Mesa ${payment.tableId}`),
+          tableName: payment.isDelivery ? "CLIENTES" : formatStationName(payment.tableName, payment.tableId),
           createdAt: payment.createdAt,
           isDelivery: payment.isDelivery,
           deliveryClient: payment.isDelivery ? payment.deliveryClient : null,
@@ -229,7 +231,7 @@ export default function InvoiceAdmin({ onBack }) {
       </header>
 
       {/* ── Dos paneles ── */}
-      <div style={{ flex: 1, display: "flex", gap: 16, minHeight: 0 }}>
+      <div className="invoiceWorkspace" style={{ flex: 1, display: "flex", gap: 16, minHeight: 0 }}>
 
         {/* ─ Panel izquierdo: lista ─ */}
         <div
@@ -251,8 +253,10 @@ export default function InvoiceAdmin({ onBack }) {
           {dayPayments.map((payment) => {
             const isSelected = editingId === payment.id;
             const label = payment.isDelivery
-              ? `🛵 ${payment.deliveryClient?.name || "Delivery"}`
-              : `🍽️ ${payment.tableName || `Mesa ${payment.tableId}`}`;
+              ? payment.deliveryClient?.name
+                ? `Cliente: ${payment.deliveryClient.name}`
+                : "Clientes"
+              : formatStationName(payment.tableName, payment.tableId);
             const methodLabel = payment.paymentSplits?.length > 1
               ? payment.paymentSplits.map((s) => s.method).join(" + ")
               : (payment.method || "—");
@@ -320,7 +324,7 @@ export default function InvoiceAdmin({ onBack }) {
               flexDirection: "column",
               gap: 8,
             }}>
-              <span style={{ fontSize: 40 }}>📄</span>
+              <InvoicesIcon style={{ width: 40, height: 40, opacity: 0.45 }} />
               <span>Selecciona una factura para ver el detalle</span>
             </div>
           )}
@@ -328,8 +332,10 @@ export default function InvoiceAdmin({ onBack }) {
           {selectedPayment && (() => {
             const payment = selectedPayment;
             const label = payment.isDelivery
-              ? `Delivery — ${payment.deliveryClient?.name || "Sin nombre"}`
-              : payment.tableName || `Mesa ${payment.tableId}`;
+              ? payment.deliveryClient?.name
+                ? `Cliente: ${payment.deliveryClient.name}`
+                : "Clientes"
+              : formatStationName(payment.tableName, payment.tableId);
             const methodLabel = payment.paymentSplits?.length > 1
               ? payment.paymentSplits.map((s) => s.method).join(" + ")
               : (payment.method || "—");
@@ -345,27 +351,29 @@ export default function InvoiceAdmin({ onBack }) {
                       {fmtDateTime(payment.createdAt)}
                     </div>
                   </div>
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  <div className="invoiceActions">
                     <button
                       className="btnPrimary"
                       onClick={() => handleSave(payment)}
                       disabled={saving}
                     >
-                      {saving ? "Guardando..." : "💾 Guardar cambios"}
+                      {saving ? "Guardando..." : <><SaveIcon style={{ width: 16, height: 16 }} /> Guardar cambios</>}
                     </button>
                     <button
                       className="btn"
                       onClick={() => handlePrint(payment)}
                       disabled={saving}
                     >
-                      🖨️ Imprimir factura
+                      <PrintIcon style={{ width: 16, height: 16 }} />
+                      Imprimir factura
                     </button>
                     <button
                       className="btnDanger"
                       onClick={() => handleDelete(payment)}
                       disabled={saving}
                     >
-                      🗑️ Eliminar factura
+                      <DeleteIcon style={{ width: 16, height: 16 }} />
+                      Eliminar factura
                     </button>
                     <button className="btn" onClick={cancelEdit} disabled={saving}>
                       Cancelar
@@ -437,7 +445,7 @@ export default function InvoiceAdmin({ onBack }) {
                         className="btnDanger"
                         style={{ padding: "4px 10px", fontSize: 13 }}
                         onClick={() => removeItem(i)}
-                      >✕</button>
+                      ><DeleteIcon style={{ width: 16, height: 16 }} /></button>
                     </div>
                   ))}
                 </div>

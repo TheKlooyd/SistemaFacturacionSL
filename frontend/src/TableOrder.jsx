@@ -9,17 +9,28 @@ import { openPrintWindow } from "./print";
 import { ticketComanda, ticketFactura, ticketCuenta } from "./printTemplates";
 import { getBusinessBranding } from "./businessBranding";
 import BusinessLogo from "./BusinessLogo";
+import { getStationLabels } from "./stationName";
 import {
   ActionIconButton,
   BackIcon,
   ClockIcon,
-  DeliveryIcon,
+  ClientsIcon,
+  EditIcon,
+  LocationIcon,
+  NoteIcon,
   PayIcon,
+  PhoneIcon,
   PrintIcon,
 } from "./ActionButtons";
 
 function formatCOP(value) {
   return new Intl.NumberFormat("es-CO").format(value || 0);
+}
+
+function formatStock(value) {
+  return new Intl.NumberFormat("es-CO", {
+    maximumFractionDigits: 2,
+  }).format(value || 0);
 }
 
 function parseNum(str) {
@@ -97,9 +108,11 @@ function withLineIds(items = []) {
 
 export default function TableOrder({ table, onBack, onPaid }) {
   const branding = getBusinessBranding();
+  const stationLabels = getStationLabels();
   const [categories, setCategories] = useState([]);
   const [products, setProducts] = useState([]);
   const [selectedCatId, setSelectedCatId] = useState("");
+  const [selectedItemType, setSelectedItemType] = useState("service");
 
   const [catQuery, setCatQuery] = useState("");
 
@@ -139,12 +152,12 @@ export default function TableOrder({ table, onBack, onPaid }) {
 
   async function recoverOrderAfterSaveError(error) {
     console.error("persist order error:", error);
-    alert("No se pudo guardar el cambio de la cuenta. Se recargará la información de la mesa.");
+    alert(`No se pudo guardar el cambio de la cuenta. Se recargará la información de ${table.name}.`);
     const savedOrder = await getOpenOrder(String(table.id));
     setOrder({ ...savedOrder, items: withLineIds(savedOrder.items) });
   }
 
-  // Delivery
+  // Optional client mode
   const [isDelivery, setIsDelivery] = useState(false);
   const [clients, setClients] = useState([]);
   const [initialLoading, setInitialLoading] = useState(true);
@@ -229,7 +242,7 @@ export default function TableOrder({ table, onBack, onPaid }) {
     void loadClients({ throwOnError: true }).then((rows) => {
       if (!cancelled) setClients(rows);
     }).catch(() => {
-      if (!cancelled) setClientsError("No se pudieron cargar los clientes. Vuelve a abrir la mesa para reintentar.");
+      if (!cancelled) setClientsError(`No se pudieron cargar los clientes. Vuelve a abrir ${stationLabels.singular.toLowerCase()} para reintentar.`);
     });
     void Promise.all([
       loadCategories({ throwOnError: true }),
@@ -248,12 +261,12 @@ export default function TableOrder({ table, onBack, onPaid }) {
       setInitialLoading(false);
     }).catch(() => {
       if (!cancelled) {
-        setLoadError("No se pudo cargar la cuenta o el catálogo. Vuelve a abrir la mesa para reintentar.");
+        setLoadError(`No se pudo cargar la cuenta o el catálogo. Vuelve a abrir ${stationLabels.singular.toLowerCase()} para reintentar.`);
         setInitialLoading(false);
       }
     });
     return () => { cancelled = true; };
-  }, [table.id]);
+  }, [table.id, stationLabels.singular]);
 
   const filteredClients = useMemo(() => {
     const q = clientQuery.trim().toLowerCase();
@@ -282,7 +295,9 @@ export default function TableOrder({ table, onBack, onPaid }) {
   // Tamaños disponibles dentro de esa categoría de pizza (según los productos)
   const pizzaSizesAvailable = useMemo(() => {
     if (!isPizzaCategory) return [];
-    const inCat = products.filter((p) => p.category_id === selectedCatId);
+    const inCat = products.filter(
+      (p) => p.category_id === selectedCatId && p.item_type === selectedItemType
+    );
 
     const set = new Set();
     for (const p of inCat) {
@@ -294,7 +309,7 @@ export default function TableOrder({ table, onBack, onPaid }) {
 
     const order = ["PORCIÓN", "PERSONAL", "MEDIANA", "GRANDE", "EXTRAGRANDE"];
     return order.filter((x) => set.has(x));
-  }, [isPizzaCategory, products, selectedCatId]);
+  }, [isPizzaCategory, products, selectedCatId, selectedItemType]);
 
   function requireKey() {
     return confirm("¿Eliminar este producto de la cuenta?");
@@ -362,7 +377,9 @@ export default function TableOrder({ table, onBack, onPaid }) {
   const billTotalWithTip = total + billTipAmount;
 
   const filteredProducts = useMemo(() => {
-    let list = products.filter((p) => p.category_id === selectedCatId);
+    let list = products.filter(
+      (p) => p.category_id === selectedCatId && p.item_type === selectedItemType
+    );
 
     // Subfiltro por tamaño solo para pizzas
     if (isPizzaCategory && pizzaSize !== "ALL") {
@@ -375,7 +392,7 @@ export default function TableOrder({ table, onBack, onPaid }) {
     // Ordenar alfabéticamente para que sea más fácil buscar
     list = [...list].sort((a, b) => (a.name || "").localeCompare(b.name || ""));
     return list;
-  }, [products, selectedCatId, isPizzaCategory, pizzaSize]);
+  }, [products, selectedCatId, selectedItemType, isPizzaCategory, pizzaSize]);
 
   function openPay() {
     if (order.items.length === 0) return alert("No hay productos en la cuenta.");
@@ -403,10 +420,12 @@ export default function TableOrder({ table, onBack, onPaid }) {
       ticketComanda({
         branding,
         tableName: table.name,
+        isClientMode: isDelivery,
+        clientName: isDelivery ? selectedClient?.name : "",
         createdAt: new Date().toISOString(),
         items: order.items.map((item) => ({ qty: item.qty, name: item.name, note: item.note || "" })),
       }),
-      "comanda"
+      "ticket"
     );
   }
 
@@ -445,7 +464,7 @@ export default function TableOrder({ table, onBack, onPaid }) {
       openPrintWindow(
         ticketFactura({
           branding,
-          tableName: isDelivery ? "DELIVERY" : table.name,
+          tableName: isDelivery ? "CLIENTES" : table.name,
           createdAt: paymentCreatedAt,
           isDelivery,
           deliveryClient: isDelivery ? selectedClient : null,
@@ -484,8 +503,8 @@ export default function TableOrder({ table, onBack, onPaid }) {
   const tableActions = [
     {
       key: "print",
-      label: "Imprimir comanda",
-      title: "Imprimir comanda",
+      label: "Imprimir ticket",
+      title: "Imprimir ticket",
       onClick: printKitchenTicket,
       tone: {
         tint: "rgba(176,83,40,.16)",
@@ -495,9 +514,9 @@ export default function TableOrder({ table, onBack, onPaid }) {
       icon: <PrintIcon />,
     },
     {
-      key: "delivery",
-      label: isDelivery ? "Delivery ON" : "Delivery",
-      title: isDelivery ? "Desactivar modo delivery" : "Activar modo delivery",
+      key: "clients",
+      label: isDelivery ? "Clientes ON" : "Clientes OFF",
+      title: isDelivery ? "Desactivar modo Clientes" : "Activar modo Clientes",
       onClick: toggleDelivery,
       tone: isDelivery
         ? {
@@ -511,12 +530,12 @@ export default function TableOrder({ table, onBack, onPaid }) {
             glow: "rgba(26,8,0,.12)",
           },
       pressed: isDelivery,
-      icon: <DeliveryIcon />,
+      icon: <ClientsIcon />,
     },
     {
       key: "back",
       label: "Volver",
-      title: "Volver a mesas",
+      title: `Volver a ${stationLabels.plural.toLowerCase()}`,
       onClick: onBack,
       tone: {
         tint: "rgba(26,8,0,.08)",
@@ -541,7 +560,7 @@ export default function TableOrder({ table, onBack, onPaid }) {
 
   if (initialLoading || loadError) {
     return <div className="page">
-      <button className="btn" onClick={onBack}>Volver a mesas</button>
+      <button className="btn" onClick={onBack}>Volver a {stationLabels.plural.toLowerCase()}</button>
       <p role={loadError ? "alert" : "status"}>{loadError || "Cargando catálogo y cuenta..."}</p>
     </div>;
   }
@@ -622,6 +641,33 @@ export default function TableOrder({ table, onBack, onPaid }) {
         <section className="card productsCard">
           <h2 style={{ marginTop: 0 }}>Productos</h2>
 
+          <div className="catalogTypeTabs" role="tablist" aria-label="Tipo de elemento">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={selectedItemType === "service"}
+              className={`catalogTypeTab service ${selectedItemType === "service" ? "active" : ""}`}
+              onClick={() => {
+                setSelectedItemType("service");
+                setPizzaSize("ALL");
+              }}
+            >
+              Servicios
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={selectedItemType === "product"}
+              className={`catalogTypeTab product ${selectedItemType === "product" ? "active" : ""}`}
+              onClick={() => {
+                setSelectedItemType("product");
+                setPizzaSize("ALL");
+              }}
+            >
+              Productos
+            </button>
+          </div>
+
           {/* Subcategorías SOLO para pizzas */}
           {isPizzaCategory && (
             <div className="pizzaSizes">
@@ -647,19 +693,25 @@ export default function TableOrder({ table, onBack, onPaid }) {
           <div className="productsScroll">
             {filteredProducts.length === 0 ? (
               <p style={{ opacity: 0.7 }}>
-                No hay productos en esta categoría{isPizzaCategory && pizzaSize !== "ALL" ? ` (${sizeLabel(pizzaSize)})` : ""}.
+                No hay {selectedItemType === "service" ? "servicios" : "productos"} en esta categoría{isPizzaCategory && pizzaSize !== "ALL" ? ` (${sizeLabel(pizzaSize)})` : ""}.
               </p>
             ) : (
               <div className="productsGrid">
                 {filteredProducts.map((p) => {
                   const isHalfable =
                     isPizzaCategory &&
+                    p.item_type === "service" &&
                     normalizeSize(p.size ?? extractSizeFromName(p.name)) !== "PORCIÓN";
                   return (
                     <div key={p.id} className="listItem">
                       <div>
                         <div style={{ fontWeight: 900 }}>{p.name}</div>
                         <div style={{ opacity: 0.8 }}>${formatCOP(p.price)}</div>
+                        {p.item_type === "product" && (
+                          <div style={{ opacity: 0.7, fontSize: 13 }}>
+                            Existencias: {formatStock(p.stock_quantity)}
+                          </div>
+                        )}
                       </div>
 
                       <div style={{ display: "flex", gap: 6 }}>
@@ -673,7 +725,11 @@ export default function TableOrder({ table, onBack, onPaid }) {
                             ½ Mitad
                           </button>
                         )}
-                        <button className="btnPrimary" onClick={() => addProduct(p)}>
+                        <button
+                          className="btnPrimary"
+                          onClick={() => addProduct(p)}
+                          disabled={p.item_type === "product" && p.stock_quantity <= 0}
+                        >
                           + Agregar
                         </button>
                       </div>
@@ -685,19 +741,28 @@ export default function TableOrder({ table, onBack, onPaid }) {
           </div>
         </section>
 
-        {/* CUENTA (+ cliente delivery cuando aplica) */}
+        {/* CUENTA (+ datos de cliente cuando aplica) */}
         <div className="cuentaCol">
           {isDelivery && (
             <section className="card deliveryCard">
-              <h2 style={{ marginTop: 0 }}>🛵 Cliente Delivery</h2>
+              <h2 style={{ marginTop: 0, display: "flex", alignItems: "center", gap: 8 }}>
+                <ClientsIcon style={{ width: 20, height: 20 }} />
+                Clientes
+              </h2>
               {clientsError && <p role="alert">{clientsError}</p>}
 
               {selectedClient ? (
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 10 }}>
                   <div>
                     <div style={{ fontWeight: 900, fontSize: 16 }}>{selectedClient.name}</div>
-                    <div style={{ opacity: 0.8, fontSize: 13 }}>📞 {selectedClient.phone}</div>
-                    <div style={{ opacity: 0.8, fontSize: 13 }}>📍 {selectedClient.address}</div>
+                    <div style={{ opacity: 0.8, fontSize: 13, display: "flex", alignItems: "center", gap: 6 }}>
+                      <PhoneIcon style={{ width: 14, height: 14 }} />
+                      {selectedClient.phone}
+                    </div>
+                    <div style={{ opacity: 0.8, fontSize: 13, display: "flex", alignItems: "center", gap: 6 }}>
+                      <LocationIcon style={{ width: 14, height: 14 }} />
+                      {selectedClient.address}
+                    </div>
                   </div>
                   <button className="btn" onClick={clearClient}>Cambiar cliente</button>
                 </div>
@@ -721,7 +786,12 @@ export default function TableOrder({ table, onBack, onPaid }) {
                         >
                           <div>
                             <div style={{ fontWeight: 900 }}>{c.name}</div>
-                            <div style={{ opacity: 0.7, fontSize: 13 }}>📞 {c.phone} — 📍 {c.address}</div>
+                            <div style={{ opacity: 0.7, fontSize: 13, display: "flex", alignItems: "center", gap: 5 }}>
+                              <PhoneIcon style={{ width: 13, height: 13 }} />
+                              {c.phone}
+                              <LocationIcon style={{ width: 13, height: 13, marginLeft: 4 }} />
+                              {c.address}
+                            </div>
                           </div>
                           <button className="btnPrimary" onClick={(e) => { e.stopPropagation(); selectClient(c); }}>Seleccionar</button>
                         </div>
@@ -779,7 +849,11 @@ export default function TableOrder({ table, onBack, onPaid }) {
                         style={{ fontSize: 12, padding: "2px 10px" }}
                         onClick={() => openNoteModal(it)}
                       >
-                        {it.note ? "✏️ Editar nota" : "📝 Añadir nota"}
+                        {it.note ? (
+                          <><EditIcon style={{ width: 14, height: 14 }} /> Editar nota</>
+                        ) : (
+                          <><NoteIcon style={{ width: 14, height: 14 }} /> Añadir nota</>
+                        )}
                       </button>
                       {it.note && (
                         <span style={{ fontSize: 12, opacity: 0.75, fontStyle: "italic" }}>"{it.note}"</span>
@@ -898,7 +972,7 @@ export default function TableOrder({ table, onBack, onPaid }) {
                 <div key={index} style={{ fontSize: 14, color: "#555", marginTop: 6, whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{value}</div>
               ))}
               <div style={{ fontSize: 14, color: "#555", marginTop: 2 }}>
-                {isDelivery ? "🛵 DELIVERY" : table.name}
+                {isDelivery ? (selectedClient?.name ? `Cliente: ${selectedClient.name}` : "Clientes") : table.name}
               </div>
             </div>
 
@@ -998,6 +1072,7 @@ export default function TableOrder({ table, onBack, onPaid }) {
                       branding,
                       tableName: table.name,
                       isDelivery,
+                      deliveryClient: isDelivery ? selectedClient : null,
                       items: order.items.map((it) => ({
                         name: it.name,
                         unit_price: it.unit_price,
@@ -1008,11 +1083,12 @@ export default function TableOrder({ table, onBack, onPaid }) {
                       tipAmount: billTipAmount,
                       totalWithTip: billTotalWithTip,
                     }),
-                    "cuenta"
+                    "ticket"
                   );
                 }}
               >
-                🖨️ Imprimir cuenta
+                <PrintIcon style={{ width: 16, height: 16 }} />
+                Imprimir ticket
               </button>
               <button
                 className="btn"

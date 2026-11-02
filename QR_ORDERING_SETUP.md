@@ -88,7 +88,7 @@ npm run generate:qr
 Para utilizar otra URL pública:
 
 ```powershell
-$env:QR_BASE_URL='https://theklooyd.github.io/SistemaFacturacionSL/'
+$env:QR_BASE_URL='https://klooyd.com/'
 npm run generate:qr
 ```
 
@@ -105,22 +105,22 @@ Después de aplicar la migración, ejecute `register-qr-codes.sql` una sola vez 
 Supabase SQL Editor. El archivo se niega a reemplazar registros existentes para
 evitar generar imágenes que no coincidan con los hashes de la base de datos.
 
-## Activar o desactivar mesas
+## Activar o desactivar estaciones
 
-La función actualiza la mesa y su QR en una única operación:
+La función actualiza la estación y su QR en una única operación:
 
 ```sql
-select public.qr_set_table_active(9, true);  -- activar mesa 9
-select public.qr_set_table_active(9, false); -- desactivar mesa 9
+select public.qr_set_table_active(9, true);  -- activar estación 9
+select public.qr_set_table_active(9, false); -- desactivar estación 9
 ```
 
-No permite desactivar una mesa que tenga un borrador QR, un pedido enviado o una
-orden abierta. Al activar las mesas 9 a 12, sus QR originales comienzan a
+No permite desactivar una estación que tenga un borrador QR, un pedido enviado o una
+orden abierta. Al activar las estaciones 9 a 12, sus QR originales comienzan a
 funcionar y aparecen en el POS después de actualizar la página.
 
 ## Revocar un QR perdido
 
-No genere nuevamente los doce QR. Genere un token para esa mesa, calcule su
+No genere nuevamente los doce QR. Genere un token para esa estación, calcule su
 SHA-256, imprima el nuevo QR y actualice únicamente `token_hash` en
 `mesa_qr_codes`. Haga el cambio después de tener impreso el reemplazo, porque el
 QR anterior deja de funcionar inmediatamente.

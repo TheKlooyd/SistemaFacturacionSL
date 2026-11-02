@@ -18,7 +18,8 @@ export async function getQrBranding(admin: SupabaseClient, qrHash: string) {
   if (negocio.estado !== "activo") return { state: "inactive" };
 
   const { data: config, error: configError } = await admin.from("negocio_configuracion")
-    .select("nombre_comercial,logo_url").eq("negocio_id", qr.negocio_id).maybeSingle();
+    .select("nombre_comercial,logo_url,nombre_estacion_singular,nombre_estacion_plural")
+    .eq("negocio_id", qr.negocio_id).maybeSingle();
   if (configError) throw configError;
 
   // Public allowlist: no payment instructions, owner details or AI rules.
@@ -27,6 +28,8 @@ export async function getQrBranding(admin: SupabaseClient, qrHash: string) {
     branding: {
       name: String(config?.nombre_comercial || "").trim() || String(negocio.nombre || "").trim() || "Mi negocio",
       logoUrl: String(config?.logo_url || "").trim(),
+      stationSingular: String(config?.nombre_estacion_singular || "").trim() || "Mesa",
+      stationPlural: String(config?.nombre_estacion_plural || "").trim() || "Mesas",
     },
   };
 }

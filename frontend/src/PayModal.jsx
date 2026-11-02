@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from "react";
+import { BankIcon, CardIcon, CashIcon, CloseIcon } from "./ActionButtons";
 
 function formatCOP(value) {
   return new Intl.NumberFormat("es-CO").format(value || 0);
@@ -43,10 +44,15 @@ function formatDiscountInput(rawValue, discountType) {
 const ALL_METHODS = ["EFECTIVO", "TARJETA", "TRANSFERENCIA"];
 
 const METHOD_ICONS = {
-  EFECTIVO: "💵",
-  TARJETA: "💳",
-  TRANSFERENCIA: "🏦",
+  EFECTIVO: CashIcon,
+  TARJETA: CardIcon,
+  TRANSFERENCIA: BankIcon,
 };
+
+function PaymentMethodIcon({ method, ...props }) {
+  const Icon = METHOD_ICONS[method];
+  return <Icon {...props} />;
+}
 
 export default function PayModal({
   total,
@@ -165,7 +171,10 @@ export default function PayModal({
       });
     } catch (error) {
       console.error("confirm payment error:", error);
-      alert("No se pudo registrar el pago. Intenta de nuevo.");
+      const message = error?.message?.startsWith("Inventario insuficiente:")
+        ? error.message
+        : "No se pudo registrar el pago. Intenta de nuevo.";
+      alert(message);
       submittingRef.current = false;
       setSubmitting(false);
     }
@@ -273,8 +282,9 @@ export default function PayModal({
                     padding: "6px 10px",
                   }}
                 >
-                  <span style={{ minWidth: 130, fontWeight: 600 }}>
-                    {METHOD_ICONS[split.method]} {split.method}
+                  <span style={{ minWidth: 130, fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 6 }}>
+                    <PaymentMethodIcon method={split.method} style={{ width: 16, height: 16 }} />
+                    {split.method}
                   </span>
                   <span style={{ opacity: 0.6 }}>$</span>
                   <input
@@ -293,7 +303,7 @@ export default function PayModal({
                       onClick={() => removeSplit(index)}
                       title={`Quitar ${split.method}`}
                     >
-                      ✕
+                      <CloseIcon style={{ width: 14, height: 14 }} />
                     </button>
                   )}
                 </div>
@@ -321,7 +331,8 @@ export default function PayModal({
                       style={{ fontSize: "0.85em" }}
                       onClick={() => addSplit(m)}
                     >
-                      {METHOD_ICONS[m]} {m}
+                      <PaymentMethodIcon method={m} style={{ width: 16, height: 16, verticalAlign: "middle", marginRight: 6 }} />
+                      {m}
                     </button>
                   ))}
                   <button

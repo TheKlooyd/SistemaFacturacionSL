@@ -55,7 +55,7 @@ body{
     radial-gradient(900px 520px at 85% 12%, var(--glow-3), transparent 58%),
     var(--bg);
 
-  /* ✅ CLAVE: la página no scrollea */
+  /* CLAVE: la página no scrollea */
   overflow: hidden;
   overflow-x: hidden;
 }
@@ -69,10 +69,10 @@ body{
   margin: 0 auto;
   padding: clamp(14px, 2vw, 28px);
 
-  height: 100vh;                 /* ✅ fijo */
-  display: flex;                 /* ✅ topbar arriba + contenido abajo */
+  height: 100vh;                 /* fijo */
+  display: flex;                 /* topbar arriba + contenido abajo */
   flex-direction: column;
-  min-height: 0;                 /* ✅ permite scroll interno */
+  min-height: 0;                 /* permite scroll interno */
 }
 
 .qrCustomerPage, .authPage{
@@ -120,14 +120,14 @@ body{
   box-shadow: var(--shadow);
   padding: 18px;
   backdrop-filter: blur(10px);
-  min-height: 0;                 /* ✅ importante */
+  min-height: 0;                 /* importante */
 }
 
 /* =========================
    Topbar
 ========================= */
 .topbar{
-  flex: 0 0 auto;               /* ✅ no crece, no empuja */
+  flex: 0 0 auto;               /* no crece, no empuja */
   display:flex;
   align-items:flex-start;
   justify-content:space-between;
@@ -148,41 +148,6 @@ body{
   width: auto;
   object-fit: contain;
   flex-shrink: 0;
-}
-
-/* =========================
-   Personalization popover
-========================= */
-.personalizationAnchor{
-  position: relative;
-  display: inline-flex;
-  cursor: pointer;
-}
-
-.personalizationPanel{
-  position: absolute;
-  top: 100%;
-  left: 0;
-  z-index: 50;
-  margin-top: 8px;
-  width: 260px;
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: var(--radius, 16px);
-  box-shadow: var(--shadow);
-  padding: 14px;
-  backdrop-filter: blur(10px);
-}
-
-.personalizationTitle{
-  font-weight: 900;
-  font-size: 14px;
-  margin-bottom: 10px;
-  color: var(--text);
-}
-
-.personalizationSection + .personalizationSection{
-  margin-top: 12px;
 }
 
 .personalizationLabel{
@@ -239,6 +204,65 @@ body{
 .personalizationOptionActive{
   background: var(--accent2);
   border-color: var(--accent);
+}
+
+.settingsLayout{
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+  gap: 16px;
+  max-width: 1100px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.settingsCard{
+  display: grid;
+  align-content: start;
+  gap: 16px;
+}
+
+.settingsSection{
+  display: grid;
+  gap: 8px;
+}
+
+.settingsDescription,
+.settingsNotice{
+  margin: 0;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.settingsNotice{
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.settingsStationForm{
+  display: grid;
+  gap: 12px;
+}
+
+.settingsField{
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.settingsFeedback{
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.settingsFeedback.success{
+  color: #08743c;
+}
+
+.settingsFeedback.error{
+  color: var(--red);
 }
 
 .topbar h1{
@@ -361,8 +385,9 @@ body{
 }
 
 .homeActionGlyph svg{
-  width: 100%;
-  height: 100%;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
   display: block;
 }
 
@@ -527,7 +552,7 @@ body{
   color: color-mix(in srgb, var(--red) 55%, black);
 }
 
-/* Teléfonos: reduce paddings/gaps para minimizar scroll, solo la grilla de mesas scrollea internamente */
+/* Teléfonos: reduce paddings/gaps para minimizar scroll, solo la grilla de estaciones scrollea internamente */
 @media (max-width: 480px){
   .mobileOrderPage .topbar{
     margin-bottom: 10px;
@@ -679,7 +704,7 @@ body{
 }
 
 /* =========================
-   Tables grid (Mesas) — usa todo el ancho
+   Stations grid — usa todo el ancho
 ========================= */
 .grid{
   display:grid;
@@ -742,53 +767,6 @@ body{
   background: linear-gradient(160deg, #cd0508 0%, #ff4347 50%, #ffb3b4 100%);
   border: 3px solid #8b0002;
   box-shadow: 0 0 12px rgba(205,5,8,.55);
-}
-
-.tableCardGhost{
-  border-style: dashed;
-  border-color: color-mix(in srgb, var(--text) 24%, transparent);
-  background: linear-gradient(180deg, color-mix(in srgb, var(--surface-base) 46%, var(--bg)), color-mix(in srgb, var(--brown) 10%, transparent));
-}
-
-.tableCardGhost:hover:not(:disabled){
-  background: linear-gradient(180deg, color-mix(in srgb, var(--surface-base) 78%, var(--bg)), color-mix(in srgb, var(--amber) 16%, transparent));
-  border-color: color-mix(in srgb, var(--brown) 38%, transparent);
-}
-
-.tableCardGhost .tableIcon{
-  opacity: .28;
-  filter: saturate(.4);
-}
-
-.tableCardGhost .tableName{
-  color: color-mix(in srgb, var(--text) 84%, transparent);
-}
-
-.tableCardGhost .tableStatus{
-  color: color-mix(in srgb, var(--text) 72%, transparent);
-  font-weight: 800;
-}
-
-.tableIconWrap{
-  position: relative;
-  display: grid;
-  place-items: center;
-}
-
-.tableGhostPlus{
-  position: absolute;
-  display: grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--text) 18%, transparent);
-  background: color-mix(in srgb, var(--surface-base) 92%, var(--bg));
-  color: var(--text);
-  font-size: 30px;
-  font-weight: 900;
-  line-height: 1;
-  box-shadow: 0 8px 18px rgba(0,0,0,.12);
 }
 
 .tableDeleteButton{
@@ -927,7 +905,7 @@ body{
   min-height: 0;
 }
 
-/* Columna de Cuenta (TableOrder): apila cliente delivery + cuenta sin romper el grid de 3 columnas */
+/* Columna de Cuenta (TableOrder): apila datos del cliente + cuenta sin romper el grid de 3 columnas */
 .cuentaCol{
   display: flex;
   flex-direction: column;
@@ -1002,7 +980,7 @@ body{
    ProductAdmin — FIX: NO SE SALE DE PANTALLA + SCROLL INTERNO
 ========================= */
 .adminLayout{
-  /* ✅ ocupa el alto restante bajo topbar */
+  /* ocupa el alto restante bajo topbar */
   flex: 1 1 auto;
   min-height: 0;
 
@@ -1010,7 +988,7 @@ body{
   grid-template-columns: minmax(320px, 520px) 1fr;
   gap: 16px;
 
-  /* ✅ CLAVE: estirar paneles al alto disponible */
+  /* CLAVE: estirar paneles al alto disponible */
   align-items: stretch;
 
   width: 100%;
@@ -1022,10 +1000,10 @@ body{
 }
 
 .adminPanel{
-  display: flex;              /* ✅ para que un hijo tenga overflow */
+  display: flex;              /* para que un hijo tenga overflow */
   flex-direction: column;
   min-width: 0;
-  min-height: 0;              /* ✅ CLAVE */
+  min-height: 0;              /* CLAVE */
 }
 
 .panelTitle{
@@ -1051,7 +1029,7 @@ body{
   font-size: 13px;
 }
 
-/* ✅ CATEGORÍAS ADMIN: scroll interno */
+/* CATEGORÍAS ADMIN: scroll interno */
 .catGrid{
   flex: 1 1 auto;
   min-height: 0;
@@ -1110,7 +1088,7 @@ body{
   margin-top: 12px;
 }
 
-/* ✅ LISTA DE PRODUCTOS ADMIN: scroll interno */
+/* LISTA DE PRODUCTOS ADMIN: scroll interno */
 .adminPanel .list{
   flex: 1 1 auto;
   min-height: 0;
@@ -1236,6 +1214,38 @@ body{
   min-height: 0;
 }
 
+.catalogTypeTabs{
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  padding: 5px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--text) 4%, transparent);
+}
+
+.catalogTypeTab{
+  min-width: 0;
+  padding: 9px 12px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.catalogTypeTab.active.service{
+  background: var(--amber2);
+  border-color: color-mix(in srgb, var(--amber) 55%, transparent);
+}
+
+.catalogTypeTab.active.product{
+  background: var(--brown2);
+  border-color: color-mix(in srgb, var(--brown) 55%, transparent);
+}
+
 .productsScroll{
   flex: 1 1 auto;
   min-height: 0;
@@ -1258,7 +1268,7 @@ body{
 .page > .card{
   flex: 1 1 0;
   min-height: 0;
-  overflow: auto;       /* ✅ scroll dentro del card */
+  overflow: auto;       /* scroll dentro del card */
 }
 
 /* Dale un poquito más de espacio al primer card (Fecha + Total + Método) */

@@ -1,37 +1,29 @@
 import { lazy, Suspense, useEffect, useState } from "react";
 import "./App.css";
+import "./Workspace.css";
+import WorkspaceShell from "./WorkspaceShell";
+import OperationsDashboard from "./OperationsDashboard";
 
-import { requireNegocioId } from "./tenantSession";
+import { getActiveTenant, requireNegocioId } from "./tenantSession";
 import { getBusinessBranding } from "./businessBranding";
+import { getStationLabels } from "./stationName";
 const PlatformAdminApp = lazy(() => import("./PlatformAdminApp"));
 
 const ProductAdmin = lazy(() => import("./ProductAdmin"));
+const InventoryAdmin = lazy(() => import("./InventoryAdmin"));
 const ClientAdmin = lazy(() => import("./ClientAdmin"));
+const SettingsView = lazy(() => import("./SettingsView"));
 import TableOrder from "./TableOrder";
 const DailyReport = lazy(() => import("./DailyReport"));
 const InvoiceAdmin = lazy(() => import("./InvoiceAdmin"));
 const MobileOrderView = lazy(() => import("./MobileOrderView"));
 import MobileOrderNotificationStack from "./MobileOrderNotifications";
 const CustomerQrOrderView = lazy(() => import("./CustomerQrOrderView"));
-import BusinessLogo from "./BusinessLogo";
-import PersonalizationMenu from "./PersonalizationMenu";
 import StaffAuthGate from "./StaffAuthGate";
-
-import {
-  ActionIconButton,
-  ClientsIcon,
-  ClockIcon,
-  InvoicesIcon,
-  MobileIcon,
-  ProductsIcon,
-  RefreshIcon,
-  ReportIcon,
-} from "./ActionButtons";
 
 import {
   addTable,
   deleteTable,
-  getNextAvailableTableNumber,
   loadTables,
   MAX_TABLES,
 } from "./tablesStore";
@@ -46,42 +38,11 @@ import {
 import { openPrintWindow } from "./print";
 import { ticketComanda } from "./printTemplates";
 
-const BASE = import.meta.env.BASE_URL;
-
-function formatElapsedClock(ms) {
-  const totalSeconds = Math.max(
-    0,
-    Math.floor(ms / 1000)
-  );
-
-  const hours = Math.floor(
-    totalSeconds / 3600
-  );
-
-  const minutes = Math.floor(
-    (totalSeconds % 3600) / 60
-  );
-
-  if (hours > 0) {
-    return `${String(hours).padStart(
-      2,
-      "0"
-    )}:${String(minutes).padStart(
-      2,
-      "0"
-    )}`;
-  }
-
-  return `00:${String(minutes).padStart(
-    2,
-    "0"
-  )}`;
-}
-
 export function StaffPosApp() {
   const negocioId = requireNegocioId();
   const branding = getBusinessBranding();
-
+  const activeTenant = getActiveTenant();
+  const stationLabels = getStationLabels(activeTenant?.configuracion);
   const [view, setView] = useState("tables");
   const [tables, setTables] = useState([]);
   const [ordersMap, setOrdersMap] = useState({});
@@ -227,7 +188,7 @@ export function StaffPosApp() {
 
                       tableName:
                         table?.name ||
-                        `Mesa ${tableId}`,
+                        `${stationLabels.singular} ${tableId}`,
 
                       createdAt:
                         order.opened_at,
@@ -258,7 +219,7 @@ export function StaffPosApp() {
         channel
       );
     };
-  }, [tables, negocioId]);
+  }, [tables, negocioId, stationLabels.singular]);
 
   useEffect(() => {
     if (
@@ -303,20 +264,11 @@ export function StaffPosApp() {
         items:
           notification.items,
       }),
-      "comanda"
+      "ticket"
     );
 
     dismissMobileNotification(
       notification.id
-    );
-  }
-
-  function isTableBusy(tableId) {
-    const order =
-      ordersMap[String(tableId)];
-
-    return (
-      order?.status === "OPEN"
     );
   }
 
@@ -357,7 +309,7 @@ export function StaffPosApp() {
       isAddingTable ||
       tables.length >= MAX_TABLES
     ) {
-      return;
+      return false;
     }
 
     setIsAddingTable(true);
@@ -370,14 +322,11 @@ export function StaffPosApp() {
         nextTables.length <=
         tables.length
       ) {
-        alert(
-          "No se pudo agregar otra mesa."
-        );
-
-        return;
+        return false;
       }
 
       setTables(nextTables);
+      return true;
     } finally {
       setIsAddingTable(false);
     }
@@ -399,7 +348,7 @@ export function StaffPosApp() {
 
     if (busy) {
       alert(
-        "No puedes eliminar una mesa que todavía tiene productos facturados o una cuenta abierta."
+        `No es posible eliminar ${table.name} mientras tenga productos facturados o una cuenta abierta.`
       );
 
       return;
@@ -407,7 +356,7 @@ export function StaffPosApp() {
 
     if (tables.length <= 1) {
       alert(
-        "Debe quedar por lo menos una mesa registrada."
+        `Debe quedar por lo menos un registro de ${stationLabels.plural.toLowerCase()}.`
       );
 
       return;
@@ -415,7 +364,7 @@ export function StaffPosApp() {
 
     if (
       !confirm(
-        `¿Eliminar ${table.name}? Esta acción quitará la mesa del sistema.`
+        `¿Eliminar ${table.name}? Esta acción quitará este registro del sistema.`
       )
     ) {
       return;
@@ -446,7 +395,7 @@ export function StaffPosApp() {
 
       if (!wasDeleted) {
         alert(
-          "No se pudo eliminar la mesa."
+          `No se pudo eliminar ${stationLabels.singular.toLowerCase()}.`
         );
 
         return;
@@ -512,568 +461,35 @@ export function StaffPosApp() {
     };
   }, []);
 
-  if (view === "products") {
-    return (
-      <div className="page">
-        <ProductAdmin
-          onBack={showTables}
-        />
-
-        <MobileOrderNotificationStack
-          notifications={
-            mobileNotifications
-          }
-          onDismiss={
-            dismissMobileNotification
-          }
-          onPrint={
-            printMobileNotification
-          }
-        />
-      </div>
-    );
+  function navigate(nextView) {
+    if (nextView === "tables") showTables();
+    else setView(nextView);
   }
 
-  if (view === "clients") {
-    return (
-      <div className="page">
-        <ClientAdmin
-          onBack={showTables}
-        />
-
-        <MobileOrderNotificationStack
-          notifications={
-            mobileNotifications
-          }
-          onDismiss={
-            dismissMobileNotification
-          }
-          onPrint={
-            printMobileNotification
-          }
-        />
-      </div>
-    );
+  let content;
+  switch (view) {
+    case "products": content = <ProductAdmin onBack={showTables} />; break;
+    case "inventory": content = <InventoryAdmin onBack={showTables} />; break;
+    case "clients": content = <ClientAdmin onBack={showTables} />; break;
+    case "report": content = <DailyReport onBack={showTables} />; break;
+    case "invoices": content = <InvoiceAdmin onBack={showTables} />; break;
+    case "mobile": content = <MobileOrderView onBack={showTables} />; break;
+    case "settings": content = <div className="page"><SettingsView onBack={showTables} tables={tables} loadingTables={loading} addingTable={isAddingTable} maxTables={MAX_TABLES} onAddTable={handleAddTable} /></div>; break;
+    case "order": content = selectedTable && <TableOrder key={selectedTable.id} table={selectedTable} onBack={showTables} onPaid={showTables} />; break;
+    default: content = <OperationsDashboard tables={tables} ordersMap={ordersMap} loading={loading} stationLabels={stationLabels} businessType={activeTenant?.configuracion?.tipo_negocio} now={now} deletingTableId={deletingTableId}
+      onOpen={table => { setSelectedTable(table); setView("order"); }} onDelete={handleDeleteTable}
+      onRefresh={refreshTables} onSettings={() => setView("settings")} onInvoices={() => setView("invoices")} />;
   }
-
-  if (view === "report") {
-    return (
-      <div className="page">
-        <DailyReport
-          onBack={showTables}
-        />
-
-        <MobileOrderNotificationStack
-          notifications={
-            mobileNotifications
-          }
-          onDismiss={
-            dismissMobileNotification
-          }
-          onPrint={
-            printMobileNotification
-          }
-        />
-      </div>
-    );
-  }
-
-  if (view === "invoices") {
-    return (
-      <div className="page">
-        <InvoiceAdmin
-          onBack={showTables}
-        />
-
-        <MobileOrderNotificationStack
-          notifications={
-            mobileNotifications
-          }
-          onDismiss={
-            dismissMobileNotification
-          }
-          onPrint={
-            printMobileNotification
-          }
-        />
-      </div>
-    );
-  }
-
-  if (view === "mobile") {
-    return (
-      <div className="page">
-        <MobileOrderView
-          onBack={showTables}
-        />
-
-        <MobileOrderNotificationStack
-          notifications={
-            mobileNotifications
-          }
-          onDismiss={
-            dismissMobileNotification
-          }
-          onPrint={
-            printMobileNotification
-          }
-        />
-      </div>
-    );
-  }
-
-  if (
-    view === "order" &&
-    selectedTable
-  ) {
-    return (
-      <div className="page">
-        <TableOrder
-          key={selectedTable.id}
-          table={selectedTable}
-          onBack={showTables}
-          onPaid={showTables}
-        />
-
-        <MobileOrderNotificationStack
-          notifications={
-            mobileNotifications
-          }
-          onDismiss={
-            dismissMobileNotification
-          }
-          onPrint={
-            printMobileNotification
-          }
-        />
-      </div>
-    );
-  }
-
-  const homeActions = [
-    {
-      key: "products",
-      label: "Productos",
-      title:
-        "Admin productos",
-
-      onClick: () =>
-        setView("products"),
-
-      tone: {
-        tint:
-          "rgba(254,174,13,.20)",
-
-        border:
-          "rgba(254,174,13,.42)",
-
-        glow:
-          "rgba(254,174,13,.20)",
-      },
-
-      icon: <ProductsIcon />,
-    },
-
-    {
-      key: "clients",
-      label: "Clientes",
-      title:
-        "Admin clientes",
-
-      onClick: () =>
-        setView("clients"),
-
-      tone: {
-        tint:
-          "rgba(176,83,40,.18)",
-
-        border:
-          "rgba(176,83,40,.36)",
-
-        glow:
-          "rgba(176,83,40,.18)",
-      },
-
-      icon: <ClientsIcon />,
-    },
-
-    {
-      key: "refresh",
-      label: "Refrescar",
-      title:
-        "Refrescar mesas",
-
-      onClick:
-        refreshTables,
-
-      tone: {
-        tint:
-          "rgba(26,8,0,.08)",
-
-        border:
-          "rgba(26,8,0,.16)",
-
-        glow:
-          "rgba(26,8,0,.12)",
-      },
-
-      icon: <RefreshIcon />,
-    },
-
-    {
-      key: "invoices",
-      label: "Facturas",
-      title:
-        "Admin facturas",
-
-      onClick: () =>
-        setView("invoices"),
-
-      tone: {
-        tint:
-          "rgba(205,5,8,.14)",
-
-        border:
-          "rgba(205,5,8,.30)",
-
-        glow:
-          "rgba(205,5,8,.16)",
-      },
-
-      icon: <InvoicesIcon />,
-    },
-
-    {
-      key: "mobile",
-      label: "Móvil",
-      title:
-        "Tomar pedido desde el móvil",
-
-      onClick: () =>
-        setView("mobile"),
-
-      tone: {
-        tint:
-          "rgba(26,8,0,.10)",
-
-        border:
-          "rgba(26,8,0,.22)",
-
-        glow:
-          "rgba(26,8,0,.14)",
-      },
-
-      icon: <MobileIcon />,
-    },
-
-    {
-      key: "report",
-      label: "Cierre",
-      title:
-        "Cierre diario",
-
-      onClick: () =>
-        setView("report"),
-
-      tone: {
-        tint:
-          "rgba(176,83,40,.16)",
-
-        border:
-          "rgba(176,83,40,.34)",
-
-        glow:
-          "rgba(176,83,40,.16)",
-      },
-
-      icon: <ReportIcon />,
-    },
-  ];
-
-  const canAddTable =
-    tables.length < MAX_TABLES;
-
-  const nextTableNumber =
-    getNextAvailableTableNumber(
-      tables
-    );
 
   return (
-    <div className="page">
-      <header className="topbar">
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 12,
-            minWidth: 0,
-          }}
-        >
-          <PersonalizationMenu>
-            <BusinessLogo
-              src={branding.logoUrl}
-              className="topbarLogo"
-              name={branding.name}
-            />
-          </PersonalizationMenu>
-
-          <div
-            style={{
-              fontWeight: 900,
-              fontSize: 20,
-              lineHeight: 1.05,
-              overflow: "hidden",
-              textOverflow:
-                "ellipsis",
-              whiteSpace:
-                "nowrap",
-              maxWidth: 260,
-            }}
-            title={branding.name}
-          >
-            {branding.name}
-          </div>
-        </div>
-
-        <div
-          className="topbarActions homeActionButtons"
-        >
-          {homeActions.map(
-            (action) => (
-              <ActionIconButton
-                key={action.key}
-                label={
-                  action.label
-                }
-                title={
-                  action.title
-                }
-                onClick={
-                  action.onClick
-                }
-                tone={
-                  action.tone
-                }
-              >
-                {action.icon}
-              </ActionIconButton>
-            )
-          )}
-        </div>
-      </header>
-
-      {loading ? (
-        <p>
-          Cargando mesas...
-        </p>
-      ) : (
-        <div className="tablesViewport">
-          <div className="grid">
-            {tables
-              .filter(
-                (table) =>
-                  table.isActive !==
-                  false
-              )
-              .map((table) => {
-                const busy =
-                  isTableBusy(
-                    table.id
-                  );
-
-                const isDeleting =
-                  deletingTableId ===
-                  table.id;
-
-                const openOrder =
-                  ordersMap[
-                    String(
-                      table.id
-                    )
-                  ] || null;
-
-                const waitMs =
-                  openOrder?.openedAt
-                    ? Math.max(
-                        0,
-                        now -
-                          new Date(
-                            openOrder.openedAt
-                          ).getTime()
-                      )
-                    : 0;
-
-                return (
-                  <div
-                    key={table.id}
-                    className="tableCardShell"
-                  >
-                    <button
-                      type="button"
-                      className={`tableCard ${
-                        busy
-                          ? "busy"
-                          : "free"
-                      }`}
-                      onClick={() => {
-                        setSelectedTable(
-                          table
-                        );
-
-                        setView(
-                          "order"
-                        );
-                      }}
-                      title="Click para abrir cuenta"
-                    >
-                      <img
-                        src={`${BASE}MesaIcono.png`}
-                        className="tableIcon"
-                        alt="mesa"
-                      />
-
-                      <div className="tableName">
-                        {table.name}
-                      </div>
-
-                      <div className="tableStatus">
-                        {busy
-                          ? "Ocupada"
-                          : "Libre"}
-                      </div>
-
-                      {busy &&
-                        openOrder?.openedAt && (
-                          <div className="tableTimer">
-                            <ClockIcon
-                              style={{
-                                width: 14,
-                                height: 14,
-                              }}
-                            />
-
-                            {formatElapsedClock(
-                              waitMs
-                            )}
-                          </div>
-                        )}
-                    </button>
-
-                    <button
-                      type="button"
-                      className={`tableDeleteButton ${
-                        busy
-                          ? "blocked"
-                          : ""
-                      }`}
-                      onClick={(
-                        event
-                      ) =>
-                        void handleDeleteTable(
-                          event,
-                          table,
-                          busy
-                        )
-                      }
-                      title={
-                        busy
-                          ? `${table.name} tiene productos; no se puede eliminar todavía`
-                          : isDeleting
-                            ? `Eliminando ${table.name}`
-                            : `Eliminar ${table.name}`
-                      }
-                      aria-label={
-                        busy
-                          ? `${table.name} tiene productos; no se puede eliminar todavía`
-                          : isDeleting
-                            ? `Eliminando ${table.name}`
-                            : `Eliminar ${table.name}`
-                      }
-                    >
-                      {isDeleting
-                        ? "..."
-                        : "×"}
-                    </button>
-                  </div>
-                );
-              })}
-
-            {canAddTable &&
-              nextTableNumber && (
-                <button
-                  type="button"
-                  className="tableCard tableCardGhost"
-                  onClick={
-                    handleAddTable
-                  }
-                  title={
-                    isAddingTable
-                      ? "Agregando mesa..."
-                      : `Agregar Mesa ${nextTableNumber}`
-                  }
-                  aria-label={
-                    isAddingTable
-                      ? "Agregando mesa"
-                      : `Agregar Mesa ${nextTableNumber}`
-                  }
-                  disabled={
-                    isAddingTable
-                  }
-                >
-                  <span
-                    className="tableIconWrap"
-                    aria-hidden="true"
-                  >
-                    <img
-                      src={`${BASE}MesaIcono.png`}
-                      className="tableIcon"
-                      alt=""
-                    />
-
-                    <span className="tableGhostPlus">
-                      +
-                    </span>
-                  </span>
-
-                  <div className="tableName">
-                    Mesa{" "}
-                    {nextTableNumber}
-                  </div>
-
-                  <div className="tableStatus">
-                    {isAddingTable
-                      ? "Creando mesa..."
-                      : `Agregar mesa · Máx. ${MAX_TABLES}`}
-                  </div>
-                </button>
-              )}
-          </div>
-        </div>
-      )}
-
-      <footer className="footer">
-        Tip: click en una mesa
-        para abrir la cuenta,
-        usa la tarjeta + para
-        agregar o la X para
-        eliminar mesas vacías.
-      </footer>
-
-      <MobileOrderNotificationStack
-        notifications={
-          mobileNotifications
-        }
-        onDismiss={
-          dismissMobileNotification
-        }
-        onPrint={
-          printMobileNotification
-        }
-      />
-    </div>
+    <WorkspaceShell branding={branding} view={view} onNavigate={navigate} now={now}>
+      <Suspense fallback={<div className="dashboardLoading" role="status"><span className="loadingSpinner" /> Cargando pantalla…</div>}>
+        {content}
+      </Suspense>
+      <MobileOrderNotificationStack notifications={mobileNotifications} onDismiss={dismissMobileNotification} onPrint={printMobileNotification} />
+    </WorkspaceShell>
   );
 }
-
 function AppRoutes() {
   const params =
     new URLSearchParams(

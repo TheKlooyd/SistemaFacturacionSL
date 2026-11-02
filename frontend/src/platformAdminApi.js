@@ -252,14 +252,14 @@ export async function createPlatformBusiness(
     );
 
     // IMPORTANTE:
-    // El restaurante ya existe.
+    // El negocio ya existe.
     // No queremos mostrar que todo falló.
     return {
       ...result,
 
       logoUploadError:
         error?.message ||
-        "El restaurante fue creado, pero no se pudo guardar el logo.",
+        "El negocio fue creado, pero no se pudo guardar el logo.",
     };
   }
 }

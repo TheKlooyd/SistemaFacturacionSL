@@ -1,9 +1,10 @@
 import { supabase } from "./supabaseClient";
 import { requireNegocioId } from "./tenantSession";
+import { formatStationName } from "./stationName";
 
 const DEFAULT_TABLE_COUNT = 12;
 
-export const MAX_TABLES = 12;
+export const MAX_TABLES = 24;
 
 function normalizeTable(row) {
   const numero = Number(row.numero ?? row.id);
@@ -11,7 +12,7 @@ function normalizeTable(row) {
   return {
     id: Number(row.id),
     numero,
-    name: row.name || `Mesa ${numero}`,
+    name: formatStationName(row.name, numero),
     status: row.status || "FREE",
     isActive: row.is_active !== false,
   };
@@ -75,7 +76,7 @@ async function seedDefaultTables() {
       return {
         negocio_id: negocioId,
         numero,
-        name: `Mesa ${numero}`,
+        name: `Estación ${numero}`,
         status: "FREE",
         is_active: true,
       };
@@ -136,7 +137,7 @@ export async function addTable() {
     .insert({
       negocio_id: negocioId,
       numero: nextNumber,
-      name: `Mesa ${nextNumber}`,
+      name: `Estación ${nextNumber}`,
       status: "FREE",
       is_active: true,
     });

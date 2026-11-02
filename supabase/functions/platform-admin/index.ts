@@ -122,7 +122,7 @@ Deno.serve(async (request) => {
           estado,
           created_at,
           suscripciones(plan_code,estado,starts_at,ends_at),
-          negocio_configuracion(nombre_comercial,logo_url,nit,direccion,telefono,payment_info,timezone,moneda,reglas_pedidos),
+          negocio_configuracion(nombre_comercial,logo_url,nit,direccion,telefono,payment_info,timezone,moneda,reglas_pedidos,tipo_negocio,nombre_estacion_singular,nombre_estacion_plural),
           negocio_usuarios(user_id,rol,is_active)
         `)
         .order("created_at", { ascending: false });
@@ -176,12 +176,16 @@ Deno.serve(async (request) => {
         : "";
       const planCode = cleanText(payload.planCode, 80) || "manual";
       const tableCount = Number(payload.tableCount ?? 12);
+      const tipoNegocio = cleanText(payload.tipoNegocio, 40) || "restaurante";
       const endsAt = cleanText(payload.endsAt, 64) || null;
       const qrBaseUrlText = cleanText(payload.qrBaseUrl, 500)
-        || "https://theklooyd.github.io/SistemaFacturacionSL/";
+        || "https://klooyd.com/";
 
       if (!nombre || !slug) {
         return reply({ error: "Nombre y slug del negocio son obligatorios." }, 400);
+      }
+      if (!["restaurante", "taller_motos"].includes(tipoNegocio)) {
+        return reply({ error: "Selecciona un tipo de negocio válido." }, 400);
       }
       if (!/^\S+@\S+\.\S+$/.test(ownerEmail)) {
         return reply({ error: "El correo del propietario no es válido." }, 400);
@@ -190,7 +194,8 @@ Deno.serve(async (request) => {
         return reply({ error: "La contraseña temporal debe tener entre 8 y 128 caracteres." }, 400);
       }
       if (!Number.isInteger(tableCount) || tableCount < 1 || tableCount > 12) {
-        return reply({ error: "La cantidad de mesas debe estar entre 1 y 12." }, 400);
+        const stationName = tipoNegocio === "taller_motos" ? "estaciones" : "mesas";
+        return reply({ error: `La cantidad de ${stationName} debe estar entre 1 y 12.` }, 400);
       }
 
       let qrBaseUrl: URL;
@@ -232,7 +237,7 @@ Deno.serve(async (request) => {
 
       const startsAt = new Date().toISOString();
       const { data: businessResult, error: businessError } = await admin.rpc(
-        "platform_admin_create_business",
+        "platform_admin_create_business_configured",
         {
           p_owner_user_id: ownerUserId,
           p_slug: slug,
@@ -251,6 +256,7 @@ Deno.serve(async (request) => {
           p_reglas_pedidos: cleanText(payload.reglasPedidos, 20000),
           p_table_count: tableCount,
           p_qr_hashes: qrHashes,
+          p_tipo_negocio: tipoNegocio,
         },
       );
 

@@ -16,7 +16,7 @@ await mkdir(output, { recursive: true });
 
 const baseUrl = (
   process.env.QR_BASE_URL
-  || "https://theklooyd.github.io/SistemaFacturacionSL/"
+  || "https://klooyd.com/"
 ).replace(/\/?$/, "/");
 
 const sqlRows = [];

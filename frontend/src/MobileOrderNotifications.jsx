@@ -18,7 +18,7 @@ export default function MobileOrderNotificationStack({ notifications, onDismiss,
               Cerrar
             </button>
             <button type="button" className="btnPrimary" onClick={() => onPrint(n)}>
-              Imprimir
+              Imprimir ticket
             </button>
           </div>
         </div>

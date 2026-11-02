@@ -19,7 +19,7 @@ async function fetchRows(negocioId) {
 
   const { data, error } = await supabase
     .from("productos")
-    .select("id,category_id,name,price,size")
+    .select("id,category_id,name,price,size,item_type,purchase_price,stock_quantity")
     .eq("negocio_id", negocioId)
     .order("name");
 
@@ -33,6 +33,9 @@ async function fetchRows(negocioId) {
     name: p.name,
     price: Number(p.price),
     size: p.size ?? null,
+    item_type: p.item_type ?? "service",
+    purchase_price: Number(p.purchase_price ?? 0),
+    stock_quantity: Number(p.stock_quantity ?? 0),
   }));
 }
 
@@ -48,13 +51,17 @@ export async function addProduct(product) {
       name: product.name,
       price: product.price,
       size: product.size ?? null,
+      item_type: product.item_type ?? "service",
+      purchase_price: product.purchase_price ?? 0,
+      stock_quantity: product.stock_quantity ?? 0,
     });
 
   if (error) {
     console.error("addProduct error:", error);
+    throw error;
   }
 
-  return await loadProducts({ fresh: true });
+  return await loadProducts({ fresh: true, throwOnError: true });
 }
 
 export async function updateProduct(id, changes) {
@@ -74,9 +81,10 @@ export async function updateProduct(id, changes) {
 
   if (error) {
     console.error("updateProduct error:", error);
+    throw error;
   }
 
-  return await loadProducts({ fresh: true });
+  return await loadProducts({ fresh: true, throwOnError: true });
 }
 
 export async function deleteProduct(id) {

@@ -4,8 +4,10 @@ import { loadProducts } from "./productsStore";
 import { getOpenOrder, setOpenOrder } from "./ordersStore";
 import { parseOrderWithAI } from "./aiOrderStore";
 import { broadcastMobileOrder } from "./mobileOrderChannel";
+import { getStationLabels } from "./stationName";
 
 export default function MobileOrderView({ onBack }) {
+  const stationLabels = getStationLabels();
   const [tables, setTables] = useState([]);
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -48,7 +50,7 @@ export default function MobileOrderView({ onBack }) {
     if (submitting) return;
 
     if (!selectedTableId || !selectedTable) {
-      setFeedback({ type: "error", message: "Selecciona primero la mesa del cliente." });
+      setFeedback({ type: "error", message: `Selecciona ${stationLabels.singular} antes de continuar.` });
       return;
     }
 
@@ -67,7 +69,7 @@ export default function MobileOrderView({ onBack }) {
       if (!lines.length) {
         setFeedback({
           type: "error",
-          message: "La IA no pudo identificar productos en el pedido. Intenta ser más específico.",
+          message: "La IA no pudo identificar productos o servicios en el pedido. Intenta ser más específico.",
         });
         return;
       }
@@ -95,7 +97,7 @@ export default function MobileOrderView({ onBack }) {
       if (!matchedLines.length) {
         setFeedback({
           type: "error",
-          message: "No se pudo relacionar ningún producto del pedido con el menú. Agrégalo manualmente desde la mesa.",
+          message: `No se pudo relacionar ningún producto o servicio del pedido con el catálogo. Agrégalo manualmente desde ${stationLabels.singular.toLowerCase()}.`,
           unmatched,
         });
         return;
@@ -123,14 +125,14 @@ export default function MobileOrderView({ onBack }) {
 
       broadcastMobileOrder({
         tableId: selectedTableId,
-        tableName: selectedTable?.name || `Mesa ${selectedTableId}`,
+        tableName: selectedTable?.name || `${stationLabels.singular} ${selectedTableId}`,
         createdAt: new Date().toISOString(),
         items: matchedLines.map((line) => ({ qty: line.qty, name: line.name, note: line.note || "" })),
       });
 
       setFeedback({
         type: "success",
-        message: `Pedido enviado a ${selectedTable?.name || "la mesa"}.`,
+        message: `Pedido enviado: ${selectedTable?.name || stationLabels.singular}.`,
         unmatched,
       });
       setOrderText("");
@@ -153,9 +155,9 @@ export default function MobileOrderView({ onBack }) {
 
       <div className="mobileOrderLayout">
         <section className="card mobileTableCard">
-          <div className="panelTitle">1. Selecciona la mesa</div>
+          <div className="panelTitle">1. Selecciona {stationLabels.singular}</div>
           {loading ? (
-            <p>Cargando mesas...</p>
+            <p>Cargando {stationLabels.plural.toLowerCase()}...</p>
           ) : (
             <div className="mobileTableGridScroll">
               <div className="mobileTableGrid">
@@ -179,7 +181,7 @@ export default function MobileOrderView({ onBack }) {
           <textarea
             className="input mobileOrderTextarea"
             rows={6}
-            placeholder='Ej: "Pizza grande mitad hawaiana mitad mexicana y una coca cola 1.5 litros"'
+            placeholder='Ej: "Cambio de aceite, ajuste de frenos y filtro de aceite"'
             value={orderText}
             onChange={(e) => setOrderText(e.target.value)}
           />

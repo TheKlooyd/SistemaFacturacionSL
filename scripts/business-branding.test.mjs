@@ -3,6 +3,7 @@ import test from "node:test";
 import { createBusinessBranding, resolveLogoUrl } from "../frontend/src/branding.js";
 import { ticketCuenta, ticketFactura, ticketComanda, ticketCierre } from "../frontend/src/printTemplates.js";
 import { loadSessionToken, saveSessionToken, removeSessionToken } from "../frontend/src/qrSessionStorage.js";
+import { formatStationName, setStationConfiguration } from "../frontend/src/stationName.js";
 import { getQrBranding } from "../supabase/functions/qr-order/branding.ts";
 import { openPrintWindow } from "../frontend/src/print.js";
 
@@ -12,6 +13,27 @@ const a = createBusinessBranding({ id: "a", nombre: "Restaurante A" }, {
 }, base);
 const b = createBusinessBranding({ id: "b", nombre: "Restaurante B" }, {}, base);
 const order = { tableName: "Mesa 1", createdAt: "2026-09-12T12:00:00Z", items: [{ name: "Pan & queso", qty: 2, unit_price: 5000 }], subtotal: 10000, tipAmount: 0, totalWithTip: 10000 };
+
+test("los nombres visibles de estación respetan la configuración y normalizan datos anteriores", () => {
+  try {
+    setStationConfiguration({
+      tipo_negocio: "restaurante",
+      nombre_estacion_singular: "Bahía",
+      nombre_estacion_plural: "Bahías",
+    });
+    assert.equal(formatStationName("Mesa 3", 3), "Bahía 3");
+
+    setStationConfiguration({
+      tipo_negocio: "taller_motos",
+      nombre_estacion_singular: "Puesto",
+      nombre_estacion_plural: "Puestos",
+    });
+    assert.equal(formatStationName("Estación 2", 2), "Puesto 2");
+    assert.equal(formatStationName("", 4), "Puesto 4");
+  } finally {
+    setStationConfiguration(null);
+  }
+});
 
 test("cuenta y factura usan exclusivamente la configuración recibida, incluidos pagos vacíos", () => {
   for (const render of [ticketCuenta, ticketFactura]) {
@@ -95,8 +117,8 @@ function fakeAdmin({ fault = null } = {}) {
       { id: "d", nombre: "Sin configuración", estado: "activo" },
     ],
     negocio_configuracion: [
-      { negocio_id: "a", nombre_comercial: "Comercial A", logo_url: "a.png", payment_info: "private-a", reglas_pedidos: "secret" },
-      { negocio_id: "b", nombre_comercial: "Comercial B", logo_url: null, payment_info: "private-b" },
+      { negocio_id: "a", nombre_comercial: "Comercial A", logo_url: "a.png", nombre_estacion_singular: "Mesa", nombre_estacion_plural: "Mesas", payment_info: "private-a", reglas_pedidos: "secret" },
+      { negocio_id: "b", nombre_comercial: "Comercial B", logo_url: null, nombre_estacion_singular: "Bahía", nombre_estacion_plural: "Bahías", payment_info: "private-b" },
     ],
   };
   return {
@@ -125,8 +147,8 @@ function fakeAdmin({ fault = null } = {}) {
 
 test("QR público resuelve dos negocios por el hash, con lista pública de campos y sin escrituras", async () => {
   const admin = fakeAdmin();
-  assert.deepEqual(await getQrBranding(admin, "hash-a"), { state: "ok", branding: { name: "Comercial A", logoUrl: "a.png" } });
-  assert.deepEqual(await getQrBranding(admin, "hash-b"), { state: "ok", branding: { name: "Comercial B", logoUrl: "" } });
+  assert.deepEqual(await getQrBranding(admin, "hash-a"), { state: "ok", branding: { name: "Comercial A", logoUrl: "a.png", stationSingular: "Mesa", stationPlural: "Mesas" } });
+  assert.deepEqual(await getQrBranding(admin, "hash-b"), { state: "ok", branding: { name: "Comercial B", logoUrl: "", stationSingular: "Bahía", stationPlural: "Bahías" } });
   const configs = admin.calls.filter((call) => call.table === "negocio_configuracion");
   assert.deepEqual(configs.map((call) => call.filters), [[["negocio_id", "a"]], [["negocio_id", "b"]]]);
   // This fake has only the read-only access RPC and no INSERT, UPDATE or DELETE methods.
@@ -137,7 +159,7 @@ test("QR desconocido/inactivo no devuelve branding; errores de BD no producen da
     assert.deepEqual(await getQrBranding(fakeAdmin(), qrHash), { state: "invalid" });
   }
   assert.deepEqual(await getQrBranding(fakeAdmin(), "suspended"), { state: "inactive" });
-  assert.deepEqual(await getQrBranding(fakeAdmin(), "no-config"), { state: "ok", branding: { name: "Sin configuración", logoUrl: "" } });
+  assert.deepEqual(await getQrBranding(fakeAdmin(), "no-config"), { state: "ok", branding: { name: "Sin configuración", logoUrl: "", stationSingular: "Mesa", stationPlural: "Mesas" } });
   await assert.rejects(getQrBranding(fakeAdmin({ fault: "negocio_configuracion" }), "hash-a"), /database unavailable/);
 });
 

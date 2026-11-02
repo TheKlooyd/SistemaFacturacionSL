@@ -7,7 +7,7 @@ import { buildBusinessPrompt } from '../supabase/functions/_shared/businessPromp
 import { validateBusinessConfig } from '../supabase/functions/_shared/businessConfig.ts';
 import { resolveAiTenant } from '../supabase/functions/_shared/tenantAi.ts';
 
-test('QR: suscripción comprobada dentro de cada RPC, incluida una sesión abierta antes de suspender', async t => {
+test('QR/negocios: suscripción comprobada y etiquetas de estación protegidas por rol', async t => {
   const db = new PGlite(); t.after(() => db.close());
   await db.exec(`create role anon;create role authenticated;create role service_role bypassrls;
     create schema auth;create table auth.users(id uuid primary key,email text);
@@ -44,6 +44,52 @@ test('QR: suscripción comprobada dentro de cada RPC, incluida una sesión abier
     return result.rows[0].b.negocio_id;
   }
   const a = await createBusiness('a'), b = await createBusiness('b');
+  const workshopOwner = (await db.query('insert into auth.users(id) values(gen_random_uuid()) returning id')).rows[0].id;
+  const workshopResult = await db.query(`select platform_admin_create_business_configured(
+    $1,'fixture-workshop','Fixture Workshop','manual',now(),null,'Fixture Workshop',
+    null,null,null,null,'','America/Bogota','COP','',1,
+    jsonb_build_array(repeat('c',64)),'taller_motos'
+  ) as business`, [workshopOwner]);
+  const workshopId = workshopResult.rows[0].business.negocio_id;
+  assert.equal(workshopResult.rows[0].business.tipo_negocio, 'taller_motos');
+  assert.deepEqual((await db.query(
+    'select tipo_negocio,nombre_estacion_singular,nombre_estacion_plural from negocio_configuracion where negocio_id=$1',
+    [workshopId],
+  )).rows[0], {
+    tipo_negocio: 'taller_motos',
+    nombre_estacion_singular: 'Estación',
+    nombre_estacion_plural: 'Estaciones',
+  });
+  assert.equal((await db.query(
+    'select name from mesas where negocio_id=$1',
+    [workshopId],
+  )).rows[0].name, 'Estación 1');
+  const cashier = (await db.query('insert into auth.users(id) values(gen_random_uuid()) returning id')).rows[0].id;
+  await db.query(
+    "insert into negocio_usuarios(negocio_id,user_id,rol) values ($1,$2,'cajero')",
+    [workshopId, cashier],
+  );
+  await db.exec('set role authenticated');
+  try {
+    await db.query("select set_config('request.jwt.claim.sub',$1,false)", [workshopOwner]);
+    const ownerUpdate = await db.query(
+      "update negocio_configuracion set nombre_estacion_singular='Bahía',nombre_estacion_plural='Bahías' where negocio_id=$1",
+      [workshopId],
+    );
+    assert.equal(ownerUpdate.rowCount, 1);
+    await assert.rejects(
+      db.query("update negocio_configuracion set tipo_negocio='restaurante' where negocio_id=$1", [workshopId]),
+      (error) => error.code === '42501',
+    );
+    await db.query("select set_config('request.jwt.claim.sub',$1,false)", [cashier]);
+    const cashierUpdate = await db.query(
+      "update negocio_configuracion set nombre_estacion_singular='Puesto' where negocio_id=$1",
+      [workshopId],
+    );
+    assert.equal(cashierUpdate.rowCount, 0);
+  } finally {
+    await db.exec('reset role');
+  }
   const call = async (sql, params=[]) => (await db.query(`select ${sql} as result`,params)).rows[0].result;
   assert.equal((await call("qr_start_session(repeat('a',64),repeat('1',64))")).state,'ok');
   assert.equal((await call("qr_start_session(repeat('b',64),repeat('2',64))")).state,'ok');
@@ -115,7 +161,7 @@ test('QR imprimible: rechaza manifiestos de otro negocio, mesas duplicadas y enl
   t.after(()=>hooks.deregister());
   const {validateQrManifest}=await import('../frontend/src/qrPrint.js');
   const token='a'.repeat(43);
-  const code={mesa:1,token,url:`https://theklooyd.github.io/SistemaFacturacionSL/?qr=${token}`};
+  const code={mesa:1,token,url:`https://klooyd.com/?qr=${token}`};
   const manifest={business:{negocio_id:'a'},qr_codes:[code]};
   assert.equal(validateQrManifest(manifest,'a').length,1);
   assert.throws(()=>validateQrManifest(manifest,'b'),/otro negocio/);
