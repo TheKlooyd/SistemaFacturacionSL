@@ -237,7 +237,89 @@ function Chart({ days, business }) {
   );
 }
 
-function Dashboard({ business, statistics }) {
+function DailyHome({ business }) {
+  const request = useRemote("daily", business.id);
+  const data = request.data;
+  const reload = request.reload;
+  useEffect(() => {
+    const refresh = () => reload(true);
+    window.addEventListener("focus", refresh);
+    return () => window.removeEventListener("focus", refresh);
+  }, [reload]);
+  return (
+    <>
+      <p className="m-eyebrow">MI NEGOCIO</p>
+      <div className="m-row">
+        <h1>Tu negocio, al día</h1>
+        <button onClick={() => request.reload()} disabled={request.loading}>
+          Actualizar
+        </button>
+      </div>
+      <Status request={request}>
+        {data && (
+          <>
+            <p className="m-muted">Hoy · {data.date} · hora del negocio</p>
+            <div className="m-kpis">
+              <div className="m-card m-highlight">
+                <span>Ventas de hoy</span>
+                <strong>{money(data.sales, business)}</strong>
+                <small>{data.tickets} tickets · sin propinas</small>
+              </div>
+              <div className="m-card">
+                <span>{data.stationLabel} en uso</span>
+                <strong>{data.stationsBusy}</strong>
+                <small>{data.stationsTotal - data.stationsBusy} disponibles · {data.stationsTotal} en total</small>
+              </div>
+            </div>
+            <Link className="m-card m-list-link" href="/mobile/estadisticas">
+              <strong>Consultar ventas y estadísticas</strong><span>→</span>
+            </Link>
+            <BusinessSummary data={data} business={business} />
+          </>
+        )}
+      </Status>
+    </>
+  );
+}
+
+function BusinessSummary({ data, business }) {
+  return (
+    <>
+      <div className="m-shortcuts">
+        <Link className="m-card" href="/mobile/inventario?stock=low">
+          <strong>{data.lowStock}</strong>Con stock bajo
+        </Link>
+        <Link className="m-card" href="/mobile/inventario?stock=empty">
+          <strong>{data.outOfStock}</strong>Agotados
+        </Link>
+        <Link className="m-card" href="/mobile/notificaciones">
+          <strong>{data.unread}</strong>Alertas sin leer
+        </Link>
+      </div>
+      <section className="m-card">
+        <div className="m-row">
+          <h2>Último cierre</h2>
+          <Link href="/mobile/cierres">Ver historial →</Link>
+        </div>
+        {data.lastClose ? (
+          <Link className="m-list-link" href={`/mobile/cierres/${data.lastClose.id}`}>
+            <span>{data.lastClose.date}</span>
+            <strong>
+              {money(
+                centsNumber(moneyCents(data.lastClose.summary.total) - moneyCents(data.lastClose.summary.tip)),
+                business,
+              )}
+            </strong>
+          </Link>
+        ) : (
+          <p className="m-muted">Todavía no hay cierres guardados.</p>
+        )}
+      </section>
+    </>
+  );
+}
+
+function Dashboard({ business }) {
   const [month, setMonth] = useState(() => localMonth(business));
   const request = useRemote("dashboard", business.id, { month });
   const data = request.data;
@@ -251,8 +333,8 @@ function Dashboard({ business, statistics }) {
     : 0;
   return (
     <>
-      <p className="m-eyebrow">{statistics ? "VENTAS" : "MI NEGOCIO"}</p>
-      <h1>{statistics ? "Así va tu mes" : "Tu negocio, al día"}</h1>
+      <p className="m-eyebrow">VENTAS</p>
+      <h1>Así va tu mes</h1>
       <Status request={request}>
         {data && (
           <>
@@ -305,42 +387,7 @@ function Dashboard({ business, statistics }) {
               </p>
             )}
             <Chart days={data.days} business={business} />
-            <div className="m-shortcuts">
-              <Link className="m-card" href="/mobile/inventario?stock=low">
-                <strong>{data.lowStock}</strong>Con stock bajo
-              </Link>
-              <Link className="m-card" href="/mobile/inventario?stock=empty">
-                <strong>{data.outOfStock}</strong>Agotados
-              </Link>
-              <Link className="m-card" href="/mobile/notificaciones">
-                <strong>{data.unread}</strong>Alertas sin leer
-              </Link>
-            </div>
-            <section className="m-card">
-              <div className="m-row">
-                <h2>Último cierre</h2>
-                <Link href="/mobile/cierres">Ver historial →</Link>
-              </div>
-              {data.lastClose ? (
-                <Link
-                  className="m-list-link"
-                  href={`/mobile/cierres/${data.lastClose.id}`}
-                >
-                  <span>{data.lastClose.date}</span>
-                  <strong>
-                    {money(
-                      centsNumber(
-                        moneyCents(data.lastClose.summary.total) -
-                          moneyCents(data.lastClose.summary.tip),
-                      ),
-                      business,
-                    )}
-                  </strong>
-                </Link>
-              ) : (
-                <p className="m-muted">Todavía no hay cierres guardados.</p>
-              )}
-            </section>
+            <BusinessSummary data={data} business={business} />
           </>
         )}
       </Status>
@@ -382,6 +429,9 @@ function Inventory({ business }) {
     <>
       <p className="m-eyebrow">INVENTARIO</p>
       <h1>Existencias</h1>
+      <Link className="m-card m-list-link" href="/mobile/inventario/nuevo">
+        <strong>Agregar producto o servicio</strong><span>＋</span>
+      </Link>
       <form
         className="m-filters"
         onSubmit={(event) => {
@@ -478,6 +528,155 @@ function Inventory({ business }) {
           </>
         )}
       </Status>
+    </>
+  );
+}
+
+function CreateCatalogItem({ business, userId }) {
+  const categories = useRemote("categories", business.id);
+  const [type, setType] = useState("product");
+  const [pin, setPin] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [created, setCreated] = useState(null);
+  const [, refreshForm] = useState(0);
+  const storageKey = `klooyd-catalog-pending:${userId}:${business.id}`;
+  const attempted = useRef(JSON.parse(sessionStorage.getItem(storageKey) || "null"));
+  const submitting = useRef(false);
+
+  async function submit(event) {
+    event.preventDefault();
+    if (submitting.current) return;
+    setError("");
+    const form = new FormData(event.currentTarget);
+    if (!attempted.current) {
+      try {
+        const price = moneyCents(String(form.get("price")));
+        const purchasePrice = type === "product" ? moneyCents(String(form.get("purchasePrice"))) : 0n;
+        const stock = type === "product" ? moneyCents(String(form.get("stock"))) : 0n;
+        if (price <= 0n || purchasePrice < 0n || stock < 0n)
+          throw new Error("Revisa el precio y las existencias.");
+        const name = String(form.get("name")).trim();
+        if (!name) throw new Error("Escribe el nombre del artículo.");
+        attempted.current = {
+          requestId: crypto.randomUUID(),
+          categoryId: String(form.get("category")),
+          name,
+          itemType: type,
+          price: centsNumber(price),
+          purchasePrice: centsNumber(purchasePrice),
+          stock: centsNumber(stock),
+          deviceId: getDeviceId(),
+        };
+      } catch (error) {
+        setError(error.message);
+        return;
+      }
+    }
+    submitting.current = true;
+    setBusy(true);
+    try {
+      const verified = await mobileApi("pin_verify", business.id, {
+        pin,
+        deviceId: attempted.current.deviceId,
+      });
+      if (!verified.ok) {
+        if (!sessionStorage.getItem(storageKey)) attempted.current = null;
+        throw new Error(verified.error);
+      }
+      sessionStorage.setItem(storageKey, JSON.stringify(attempted.current));
+      const result = await mobileApi("create_catalog_item", business.id, {
+        ...attempted.current,
+        token: verified.token,
+      });
+      setCreated({ ...result, type: attempted.current.itemType });
+      attempted.current = null;
+      sessionStorage.removeItem(storageKey);
+    } catch (error) {
+      setError(error.message + (attempted.current
+        ? " Si no recibiste confirmación, reintenta esta misma operación para evitar duplicados."
+        : ""));
+    } finally {
+      setPin("");
+      setBusy(false);
+      submitting.current = false;
+    }
+  }
+  return (
+    <>
+      <Link href="/mobile/inventario">← Inventario</Link>
+      <h1>Agregar al catálogo</h1>
+      {created ? (
+        <section className="m-card" role="status">
+          <h2>Artículo guardado</h2>
+          <p>Ya está disponible en el catálogo del POS.</p>
+          {created.type === "product" && <Link href={`/mobile/inventario/${created.id}`}>Ver producto →</Link>}
+          <button onClick={() => setCreated(null)}>Agregar otro</button>
+        </section>
+      ) : (
+        <Status request={categories}>
+          {categories.data && (
+            <form className="m-card" onSubmit={submit}>
+              {!categories.data.length && !attempted.current && <p role="alert">Crea primero una categoría en el POS.</p>}
+              {attempted.current && (
+                <p className="m-notice">
+                  Pendiente de confirmar: {attempted.current.name}. Reintenta con tu PIN para evitar duplicados.
+                </p>
+              )}
+              <fieldset disabled={busy || Boolean(attempted.current)}>
+                <label>Tipo
+                  <select value={type} onChange={(event) => setType(event.target.value)}>
+                    <option value="product">Producto físico</option>
+                    <option value="service">Servicio</option>
+                  </select>
+                </label>
+                <label>Nombre
+                  <input name="name" maxLength={200} required />
+                </label>
+                <label>Categoría
+                  <select name="category" required defaultValue="">
+                    <option value="" disabled>Selecciona una categoría</option>
+                    {categories.data.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
+                  </select>
+                </label>
+                <label>Precio de venta
+                  <input name="price" type="number" min="0.01" max="9999999999.99" step="0.01" required />
+                </label>
+                {type === "product" && (
+                  <>
+                    <label>Precio de compra
+                      <input name="purchasePrice" type="number" min="0" max="9999999999.99" step="0.01" required />
+                    </label>
+                    <label>Existencias iniciales
+                      <input name="stock" type="number" min="0" max="9999999999.99" step="0.01" defaultValue="0" required />
+                    </label>
+                  </>
+                )}
+              </fieldset>
+              <label>PIN administrativo
+                <input type="password" inputMode="numeric" autoComplete="off" value={pin}
+                  onChange={(event) => setPin(event.target.value)} pattern="[0-9]{6,12}"
+                  minLength={6} maxLength={12} required disabled={busy} />
+              </label>
+              <button className="m-primary" disabled={busy || (!categories.data.length && !attempted.current)}>
+                {busy ? "Guardando…" : attempted.current ? "Reintentar el mismo artículo" : "Guardar artículo"}
+              </button>
+              {attempted.current && (
+                <button type="button" disabled={busy} onClick={() => {
+                  if (window.confirm("Comprueba en el POS si se creó el artículo antes de descartar este intento. ¿Descartarlo?")) {
+                    sessionStorage.removeItem(storageKey);
+                    attempted.current = null;
+                    setError("");
+                    refreshForm((value) => value + 1);
+                  }
+                }}>Descartar intento</button>
+              )}
+              <Link href="/mobile/ajustes">Configurar o recuperar PIN</Link>
+              {error && <p role="alert">{error}</p>}
+            </form>
+          )}
+        </Status>
+      )}
     </>
   );
 }
@@ -969,8 +1168,11 @@ function Settings({ business, installEvent, onInstalled, onSignOut }) {
                 Activar en este dispositivo
               </button>
               {Object.entries({
-                stock_enabled: "Alertas de stock bajo",
+                stock_enabled: "Stock bajo y productos agotados",
                 close_enabled: "Cierres de caja",
+                invoice_enabled: "Facturas eliminadas",
+                invoice_edit_enabled: "Facturas editadas",
+                close_delete_enabled: "Cierres diarios eliminados",
                 show_details: "Mostrar detalles en pantalla bloqueada",
               }).map(([key, label]) => (
                 <label className="m-check" key={key}>
@@ -1138,11 +1340,13 @@ function OwnerWorkspace({ session, installEvent, onInstalled }) {
   const [page, id] = section.split("/");
   let content;
   if (!page || page === "index.html" || page === "login")
-    content = <Dashboard business={business} />;
+    content = <DailyHome business={business} />;
   else if (page === "estadisticas")
-    content = <Dashboard business={business} statistics />;
+    content = <Dashboard business={business} />;
   else if (page === "inventario")
-    content = id ? (
+    content = id === "nuevo" ? (
+      <CreateCatalogItem business={business} userId={session.user.id} />
+    ) : id ? (
       <Product key={id} business={business} id={id} />
     ) : (
       <Inventory business={business} />

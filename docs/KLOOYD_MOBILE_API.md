@@ -65,6 +65,25 @@ Los errores de autorización usan SQLSTATE `42501`; validaciones funcionales,
 vacíos y permite reintentar fallos de conexión. El PIN incorrecto es un resultado
 normal `{ok:false}`, no una excepción SQL, para que el bloqueo no se revierta.
 
+## Inicio diario y creación del catálogo
+
+`POST /rest/v1/rpc/klooyd_mobile_workspace` usa los mismos parámetros y
+autorización de propietario que `klooyd_mobile`. Requiere la migración
+`20261113203304_mobile_daily_catalog.sql`.
+
+| Acción | Resultado |
+| --- | --- |
+| `daily` | Ventas y tickets de hoy en la zona horaria del negocio, estaciones activas y en uso, stock, alertas y último cierre. Una estación está en uso si tiene una orden `OPEN`. |
+| `create_catalog_item` | Crea un producto físico o servicio en una categoría del negocio. |
+
+Para crear un artículo se verifica primero el PIN con `pin_verify`; el payload
+incluye `requestId`, `deviceId`, `token`, `categoryId`, `name`, `itemType`,
+`price`, `purchasePrice` y `stock`. Servicios deben tener compra y stock en
+cero. La clave `requestId` se conserva durante un reintento, incluso tras
+recargar la pestaña, y no puede reutilizarse con datos diferentes. Las
+existencias iniciales de productos se registran como movimiento de inventario.
+La creación de categorías sigue realizándose en el POS.
+
 ## Configuración/recuperación del PIN
 
 `POST /functions/v1/mobile-pin`, con JWT primario y cuerpo

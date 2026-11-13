@@ -452,4 +452,57 @@ test("mobile: PostgreSQL, propietarios, aislamiento, PIN, ajustes auditados y ev
       assert.equal(Number((await api("product", a, { id: product })).stock), 4);
     },
   );
+  await t.test("inicio diario y creación del catálogo con PIN e idempotencia", async () => {
+    await db.exec(`
+      reset role;
+      alter table public.negocio_configuracion add column nombre_estacion_plural text default 'Mesas';
+      alter table public.productos add column price numeric(12,2);
+      create table public.mesas(id integer primary key, negocio_id uuid, is_active boolean);
+      insert into public.mesas values (1,'${a}',true),(2,'${a}',true),(3,'${a}',false),(4,'${b}',true);
+      insert into public.ordenes values
+        (gen_random_uuid(),'${a}','1','OPEN','[]'),
+        (gen_random_uuid(),'${a}','3','OPEN','[]'),
+        (gen_random_uuid(),'${b}','4','OPEN','[]');
+      insert into public.categorias values ('${a}','${a}','Categoría A'),('${b}','${b}','Categoría B');
+      delete from public.pagos where created_at >= date_trunc('day',now() at time zone 'America/Bogota') at time zone 'America/Bogota';
+      insert into public.pagos values (gen_random_uuid(),'${a}',now(),100,0,10,110,110,'EFECTIVO',null,'[]','1',null,false,null);
+      insert into public.pagos values
+        (gen_random_uuid(),'${a}',(date_trunc('day',now() at time zone 'America/Bogota') at time zone 'America/Bogota') - interval '1 second',500,0,0,500,500,'EFECTIVO',null,'[]','1',null,false,null),
+        (gen_random_uuid(),'${a}',(date_trunc('day',now() at time zone 'America/Bogota') + interval '1 day') at time zone 'America/Bogota',500,0,0,500,500,'EFECTIVO',null,'[]','1',null,false,null),
+        (gen_random_uuid(),'${b}',now(),500,0,0,500,500,'EFECTIVO',null,'[]','1',null,false,null);
+    `);
+    await db.exec(await readFile("supabase/migrations/20261113203304_mobile_daily_catalog.sql", "utf8"));
+    await asUser(a);
+    const workspace = async (action, tenant = a, body = {}) =>
+      (await db.query("select public.klooyd_mobile_workspace($1,$2,$3) result",
+        [action, tenant, JSON.stringify(body)])).rows[0].result;
+    const daily = await workspace("daily");
+    assert.equal(Number(daily.sales), 100);
+    assert.equal(daily.tickets, 1);
+    assert.equal(daily.stationsBusy, 1);
+    assert.equal(daily.stationsTotal, 2);
+    await assert.rejects(workspace("daily", b), /no autorizado/);
+    const verified = await api("pin_verify", a, { pin: "123456", deviceId: device });
+    const item = {
+      requestId: crypto.randomUUID(), categoryId: a, name: "Aceite nuevo", itemType: "product",
+      price: 2500.5, purchasePrice: 1000, stock: 3, deviceId: device, token: verified.token,
+    };
+    await assert.rejects(workspace("create_catalog_item", a, { ...item, token: "invalid" }), /PIN/);
+    await assert.rejects(workspace("create_catalog_item", a, { ...item, deviceId: b }), /PIN/);
+    await assert.rejects(workspace("create_catalog_item", a, { ...item, categoryId: b }), /categoría/);
+    await assert.rejects(workspace("create_catalog_item", a, { ...item, stock: -1 }), /no válidos/);
+    const first = await workspace("create_catalog_item", a, item);
+    assert.equal((await workspace("create_catalog_item", a, item)).id, first.id);
+    await assert.rejects(workspace("create_catalog_item", a, { ...item, price: 3000 }), /otro artículo/);
+    const created = await api("product", a, { id: first.id });
+    assert.equal(Number(created.stock), 3);
+    assert.equal(created.movements[0].motivo, "Existencia inicial al crear producto");
+    const serviceItem = { ...item, requestId: crypto.randomUUID(), name: "Servicio", itemType: "service", purchasePrice: 0, stock: 0 };
+    await assert.rejects(workspace("create_catalog_item", a, { ...serviceItem, stock: 1 }), /no válidos/);
+    const serviceResult = await workspace("create_catalog_item", a, serviceItem);
+    await assert.rejects(api("product", a, { id: serviceResult.id }), /no disponible/);
+    await asUser(staff);
+    await assert.rejects(workspace("create_catalog_item", a, item), /no autorizado/);
+    await asUser(a);
+  });
 });

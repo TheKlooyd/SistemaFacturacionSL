@@ -1,7 +1,10 @@
 import { supabase } from "../supabaseClient.js";
 
 export async function mobileApi(action, businessId = null, payload = {}) {
-  const { data, error } = await supabase.rpc("klooyd_mobile", {
+  const rpc = ["daily", "create_catalog_item"].includes(action)
+    ? "klooyd_mobile_workspace"
+    : "klooyd_mobile";
+  const { data, error } = await supabase.rpc(rpc, {
     p_action: action,
     p_negocio: businessId,
     p_payload: payload,
