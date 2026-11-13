@@ -28,6 +28,8 @@ test('cierres: dos negocios el mismo día, reintentos y aislamiento real con Pos
       id uuid primary key default gen_random_uuid(), negocio_id uuid not null,
       date_iso text not null, data jsonb not null, created_at timestamptz not null default now()
     );
+    create table pagos (id int primary key, negocio_id uuid, total int);
+    insert into pagos values (1,'${a}',150),(2,'${b}',200);
     create unique index cierres_diarios_negocio_date_iso_key on cierres_diarios(negocio_id,date_iso);
     create unique index cierres_diarios_date_iso_legacy_key on cierres_diarios(date_iso);
     alter table cierres_diarios enable row level security;
@@ -62,6 +64,18 @@ test('cierres: dos negocios el mismo día, reintentos y aislamiento real con Pos
   assert.equal((await db.query('select count(*)::int n from cierres_diarios')).rows[0].n,2);
   await db.exec(migration); // Repeat safely without deleting or duplicating snapshots.
   assert.equal((await db.query('select count(*)::int n from cierres_diarios')).rows[0].n,2);
+  const paymentsBefore = (await db.query('select * from pagos order by id')).rows;
+  await asUser(a);
+  await db.query(`insert into cierres_diarios(negocio_id,date_iso,data) values ($1,'2026-09-13','{}')`,[a]);
+  const deleted = await db.query('delete from cierres_diarios where negocio_id=$1 and date_iso=$2 returning id',[a,'2026-09-12']);
+  assert.equal(deleted.rows[0].id,before[0].id);
+  await db.exec('reset role');
+  assert.deepEqual((await db.query('select negocio_id,date_iso from cierres_diarios order by date_iso')).rows,
+    [{negocio_id:b,date_iso:'2026-09-12'},{negocio_id:a,date_iso:'2026-09-13'}]);
+  assert.deepEqual((await db.query('select * from pagos order by id')).rows,paymentsBefore);
+  await asUser(a);
+  await save(a,150);
+  assert.equal((await db.query('select count(*)::int n from cierres_diarios')).rows[0].n,2);
 });
 
 test('el store guarda en el negocio autenticado y propaga fallos sin confirmar un cierre inexistente', async (t) => {
@@ -69,11 +83,13 @@ test('el store guarda en el negocio autenticado y propaga fallos sin confirmar u
   let response = { data: { data: { dateISO: '2026-09-12', summary: { total: 150 } } }, error: null };
   const query = {
     upsert(payload, options) { calls.push({ payload, options }); return this; },
-    select() { return this; }, eq() { return this; }, order() { return this; }, limit() { return this; },
+    delete() { calls.push({delete:true}); return this; },
+    select() { return this; }, eq(key,value) { calls.push({key,value}); return this; }, order() { return this; }, limit() { return this; },
     single() { return Promise.resolve(response); }, maybeSingle() { return Promise.resolve(response); },
     then(resolve, reject) { return Promise.resolve(response).then(resolve, reject); },
   };
-  globalThis.__dailyCloseClient = { from(table) { assert.ok(['cierres_diarios','pagos'].includes(table)); return query; } };
+  const tables = [];
+  globalThis.__dailyCloseClient = { from(table) { tables.push(table); assert.ok(['cierres_diarios','pagos'].includes(table)); return query; } };
   const hooks = registerHooks({ resolve(specifier, context, next) {
     if (context.parentURL?.endsWith('/frontend/src/paymentsStore.js')) {
       if (specifier === './supabaseClient') return { shortCircuit: true, url: 'data:text/javascript,export const supabase=globalThis.__dailyCloseClient;' };
@@ -83,7 +99,7 @@ test('el store guarda en el negocio autenticado y propaga fallos sin confirmar u
   } });
   t.after(() => { hooks.deregister(); delete globalThis.__dailyCloseClient; });
   t.mock.method(console, 'error', () => {});
-  const { saveDailyClose, loadDailyClose, loadPayments } = await import('../frontend/src/paymentsStore.js');
+  const { saveDailyClose, loadDailyClose, loadPayments, deleteDailyClose } = await import('../frontend/src/paymentsStore.js');
   const snapshot = { dateISO: '2026-09-12', summary: { total: 150 }, negocio_id: b };
   assert.deepEqual(await saveDailyClose(snapshot),response.data.data);
   assert.equal(calls[0].payload.negocio_id,a);
@@ -96,4 +112,18 @@ test('el store guarda en el negocio autenticado y propaga fallos sin confirmar u
   response = { data: null, error: null };
   await assert.rejects(saveDailyClose(snapshot),/confirmación/);
   assert.equal(await loadDailyClose(snapshot.dateISO),null);
+  calls.length = 0;
+  tables.length = 0;
+  for (const dateISO of [undefined, null, '', '2026-02-30', '2026-13-01', 'not-a-date', '2026-09-12T00:00:00Z']) {
+    await assert.rejects(deleteDailyClose(dateISO),/fecha válida/);
+  }
+  assert.equal(tables.length,0,'invalid or missing dates must never reach the database');
+  response = { data: {id:'deleted-close'}, error:null };
+  assert.equal(await deleteDailyClose(snapshot.dateISO),'deleted-close');
+  assert.deepEqual(tables,['cierres_diarios'],'deletion must never touch payments');
+  assert.deepEqual(calls,[{delete:true},{key:'negocio_id',value:a},{key:'date_iso',value:snapshot.dateISO}]);
+  response = { data:null, error:new Error('delete denied') };
+  await assert.rejects(deleteDailyClose(snapshot.dateISO),/delete denied/);
+  response = { data:null, error:null };
+  await assert.rejects(deleteDailyClose(snapshot.dateISO),/confirmación/);
 });

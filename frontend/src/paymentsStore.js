@@ -196,31 +196,18 @@ export async function deletePayment(id) {
   }
 }
 
-export async function clearPayments() {
-  const negocioId = requireNegocioId();
-
-  const { error } = await supabase
-    .from("pagos")
-    .delete()
-    .eq("negocio_id", negocioId)
-    .gte("created_at", "2020-01-01");
-
-  if (error) {
-    console.error(
-      "clearPayments error:",
-      error
-    );
-  }
-}
-
-export async function saveDailyClose(closeObj) {
-  const negocioId = requireNegocioId();
-  const dateISO = String(closeObj?.dateISO || "");
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateISO) ||
+function requireCloseDate(dateISO) {
+  if (typeof dateISO !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(dateISO) ||
       !Number.isFinite(Date.parse(`${dateISO}T00:00:00Z`)) ||
       new Date(`${dateISO}T00:00:00Z`).toISOString().slice(0, 10) !== dateISO) {
     throw new Error("Selecciona una fecha válida para el cierre.");
   }
+  return dateISO;
+}
+
+export async function saveDailyClose(closeObj) {
+  const negocioId = requireNegocioId();
+  const dateISO = requireCloseDate(closeObj?.dateISO);
   const { data, error } = await supabase.from("cierres_diarios")
     .upsert({
       negocio_id: negocioId,
@@ -267,19 +254,19 @@ export async function loadDailyClose(
   return data.data;
 }
 
-export async function deleteDailyClose() {
+export async function deleteDailyClose(dateISO) {
+  requireCloseDate(dateISO);
   const negocioId = requireNegocioId();
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("cierres_diarios")
     .delete()
     .eq("negocio_id", negocioId)
-    .gte("created_at", "2020-01-01");
+    .eq("date_iso", dateISO)
+    .select("id")
+    .maybeSingle();
 
-  if (error) {
-    console.error(
-      "deleteDailyClose error:",
-      error
-    );
-  }
+  if (error) throw error;
+  if (!data?.id) throw new Error("No se recibió confirmación del cierre eliminado. Recarga para comprobar su estado.");
+  return data.id;
 }

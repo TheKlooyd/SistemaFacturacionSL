@@ -4,7 +4,6 @@ import {
   loadDailyClose,
   saveDailyClose,
   deleteDailyClose,
-  clearPayments,
 } from "./paymentsStore";
 import { openPrintWindow } from "./print";
 import { ticketCierre } from "./printTemplates";
@@ -349,15 +348,27 @@ export default function DailyReport({ onBack }) {
     }
   }
 
-  async function handleClearPayments() {
+  async function handleDeleteClose() {
+    if (!ready || savingRef.current || !closeForSelectedDate) return;
     const ok = confirm(
-      "Esto borra TODOS los pagos guardados (historial). ¿Seguro?"
+      `¿Eliminar el cierre del ${date}? Los pagos y los cierres de otras fechas se conservarán. Podrás volver a generar este cierre.`
     );
     if (!ok) return;
 
-    await Promise.all([clearPayments(), deleteDailyClose()]);
-    await reload();
-    alert("Historial borrado.");
+    savingRef.current = true;
+    setSaving(true);
+    setErrorText("");
+    try {
+      await deleteDailyClose(date);
+      setClose(null);
+      alert(`Cierre del ${date} eliminado. Los pagos se conservaron.`);
+    } catch {
+      setLoadedDate(null);
+      setErrorText("No se pudo confirmar la eliminación del cierre. Pulsa Recargar para comprobar su estado antes de reintentar.");
+    } finally {
+      savingRef.current = false;
+      setSaving(false);
+    }
   }
 
   return (
@@ -368,9 +379,9 @@ export default function DailyReport({ onBack }) {
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
           <button className="btn" disabled={saving} onClick={onBack}>Volver</button>
           <button className="btn" disabled={saving || loading} onClick={reload}>Recargar</button>
-          <button className="btn" disabled={!ready || saving} onClick={handleGenerateClose}>{saving ? "Guardando..." : "Generar cierre diario"}</button>
+          <button className="btn" disabled={!ready || saving} onClick={handleGenerateClose}>{saving ? "Procesando..." : "Generar cierre diario"}</button>
           <button className="btn" disabled={!ready || saving} onClick={handlePrintClose}>Imprimir cierre</button>
-          <button className="btn" disabled={!ready || saving} onClick={handleClearPayments}>Borrar historial de pagos</button>
+          <button className="btn" disabled={!ready || saving || !closeForSelectedDate} onClick={handleDeleteClose}>Eliminar cierre de la fecha seleccionada</button>
         </div>
       </div>
 
