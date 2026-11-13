@@ -152,6 +152,46 @@ test('administración: un propietario autenticado no puede ejecutar edición; ad
   isAdmin=true;assert.equal((await handler(request())).status,200);assert.equal(updates,1);
 });
 
+test('administración: crear negocio conserva el tipo elegido', async t => {
+  let handler;
+  const calls = [];
+  const client = {
+    auth: {
+      getUser: async () => ({ data: { user: { id: 'admin' } }, error: null }),
+      admin: { createUser: async () => ({ data: { user: { id: 'owner' } }, error: null }) },
+    },
+    rpc: async (name, args) => {
+      if (name === 'platform_admin_is_user') return { data: true, error: null };
+      calls.push({ name, args });
+      return { data: { negocio_id: 'business' }, error: null };
+    },
+  };
+  globalThis.__launchAdmin = client;
+  globalThis.Deno = { env: { get: () => 'configured' }, serve(fn) { handler = fn; } };
+  const hooks = registerHooks({ resolve(specifier, context, next) {
+    if (specifier === 'npm:@supabase/supabase-js@2')
+      return { shortCircuit: true, url: 'data:text/javascript,export const createClient=()=>globalThis.__launchAdmin;' };
+    return next(specifier, context);
+  } });
+  t.after(() => { hooks.deregister(); delete globalThis.__launchAdmin; delete globalThis.Deno; });
+  await import('../supabase/functions/platform-admin/index.ts?creation-test');
+  const request = (tipoNegocio) => new Request('https://test.local', {
+    method: 'POST',
+    headers: { Authorization: 'Bearer test', 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'create_business', business: {
+      nombre: 'Prueba', ownerEmail: 'owner@example.test', ownerPassword: 'fixture-password',
+      tableCount: 1, tipoNegocio,
+    } }),
+  });
+  for (const tipo of ['taller_motos', 'restaurante']) {
+    assert.equal((await handler(request(tipo))).status, 201);
+    assert.equal(calls.at(-1).name, 'platform_admin_create_business_configured');
+    assert.equal(calls.at(-1).args.p_tipo_negocio, tipo);
+  }
+  assert.equal((await handler(request('desconocido'))).status, 400);
+  assert.equal(calls.length, 2);
+});
+
 
 test('QR imprimible: rechaza manifiestos de otro negocio, mesas duplicadas y enlaces incoherentes', async t => {
   const hooks=registerHooks({resolve(specifier,context,next){

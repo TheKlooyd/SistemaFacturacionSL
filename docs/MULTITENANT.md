@@ -50,6 +50,10 @@ Antes de habilitar los nuevos tipos en producción, aplique
 `20261102173151_business_types_and_station_labels.sql` y despliegue las Edge
 Functions junto con el frontend. La migración es aditiva; no la ejecute de nuevo
 si ya aparece en el historial de Supabase.
+El despliegue de GitHub Pages actualiza solo el frontend: publique también
+`platform-admin` cuando cambie su código. Una versión antigua de esa función
+ignora el tipo seleccionado y registra los negocios nuevos como restaurantes;
+los negocios ya creados requieren corregir su tipo individualmente.
 
 ## Pruebas locales sin usar producción
 
