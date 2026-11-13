@@ -17,7 +17,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
           cache-dependency-path: frontend/package-lock.json
 
@@ -26,7 +26,11 @@ jobs:
         working-directory: frontend
 
       - name: Build
-        run: npm run build
+        env:
+          VITE_WEB_PUSH_PUBLIC_KEY: ${{ vars.VITE_WEB_PUSH_PUBLIC_KEY }}
+        run: |
+          node scripts/check-production-env.mjs
+          npm run build
         working-directory: frontend
 
       - name: Deploy to gh-pages

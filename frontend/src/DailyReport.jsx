@@ -11,6 +11,7 @@ import { ticketCierre } from "./printTemplates";
 import { getBusinessBranding } from "./businessBranding";
 import { formatStationName } from "./stationName";
 import { StatusIcon } from "./ActionButtons";
+import { businessDate, summarizePayments, summarizeBreakdown } from "./paymentMath.js";
 
 function formatCOP(value) {
   return new Intl.NumberFormat("es-CO").format(value || 0);
@@ -22,20 +23,12 @@ function safeNumber(value) {
 }
 
 function todayISO() {
-  const now = new Date();
-  const yyyy = now.getFullYear();
-  const mm = String(now.getMonth() + 1).padStart(2, "0");
-  const dd = String(now.getDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`;
+  return businessDate(new Date(), getBusinessBranding().timezone);
 }
 
 // Extrae la fecha local (YYYY-MM-DD) de un ISO string UTC
 function localDateFrom(isoString) {
-  const d = new Date(isoString);
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`;
+  return businessDate(isoString, getBusinessBranding().timezone);
 }
 
 function confirmAction(actionName = "esta acción") {
@@ -106,7 +99,7 @@ function paymentFingerprint(payment) {
   });
 }
 
-// Evita que un doble clic o reintento inmediato infle el cierre con el mismo pago.
+// Señala coincidencias para revisión; IDs distintos se cuentan siempre.
 function splitProbableDuplicatePayments(payments) {
   const uniquePayments = [];
   const duplicatePayments = [];
@@ -140,43 +133,6 @@ function splitProbableDuplicatePayments(payments) {
   duplicatePayments.sort(byNewestFirst);
 
   return { uniquePayments, duplicatePayments };
-}
-
-function allocateAcrossSplits(paymentSplits, targetAmount) {
-  const splits = normalizePaymentSplits(paymentSplits);
-  if (splits.length === 0) return [];
-
-  const totalCents = Math.round(safeNumber(targetAmount) * 100);
-  const splitSumCents = splits.reduce(
-    (sum, split) => sum + Math.round(split.amount * 100),
-    0
-  );
-
-  if (splitSumCents <= 0) {
-    return splits.map((split, index) => ({
-      method: split.method,
-      amount: index === 0 ? totalCents / 100 : 0,
-    }));
-  }
-
-  let allocatedCents = 0;
-  return splits.map((split, index) => {
-    if (index === splits.length - 1) {
-      return {
-        method: split.method,
-        amount: (totalCents - allocatedCents) / 100,
-      };
-    }
-
-    const splitCents = Math.round(split.amount * 100);
-    const nextCents = Math.round((splitCents * totalCents) / splitSumCents);
-    allocatedCents += nextCents;
-
-    return {
-      method: split.method,
-      amount: nextCents / 100,
-    };
-  });
 }
 
 function normalizeBreakdownEntries(entries) {
@@ -292,69 +248,23 @@ export default function DailyReport({ onBack }) {
   // pagos del día seleccionado
   const { dayPayments, probableDuplicates } = useMemo(() => {
     const filtered = filterPaymentsByDate(payments, date);
-    const { uniquePayments, duplicatePayments } = splitProbableDuplicatePayments(filtered);
+    const { duplicatePayments } = splitProbableDuplicatePayments(filtered);
 
     return {
-      dayPayments: uniquePayments,
+      dayPayments: [...new Map(filtered.map(payment => [payment.id, payment])).values()],
       probableDuplicates: duplicatePayments,
     };
   }, [payments, date]);
 
   // resumen del día (live)
-  const liveSummary = useMemo(() => {
-    return dayPayments.reduce(
-      (acc, p) => {
-        acc.subtotal += safeNumber(p.subtotal);
-        acc.tip += safeNumber(p.tipAmount);
-        acc.total += safeNumber(p.totalWithTip);
-        acc.tickets += 1;
-        return acc;
-      },
-      { subtotal: 0, tip: 0, total: 0, tickets: 0 }
-    );
-  }, [dayPayments]);
+  const liveSummary = useMemo(() => summarizePayments(dayPayments), [dayPayments]);
 
   // breakdown por método (soporta paymentSplits y formato anterior)
-  const breakdown = useMemo(() => {
-    const map = new Map();
-    for (const p of dayPayments) {
-      const splitTotals = allocateAcrossSplits(p.paymentSplits, p.totalWithTip);
-      const splitTips = allocateAcrossSplits(p.paymentSplits, p.tipAmount);
-
-      if (splitTotals.length > 0) {
-        const perMethod = new Map();
-
-        for (const split of splitTotals) {
-          const cur = perMethod.get(split.method) || { total: 0, tip: 0 };
-          cur.total += split.amount;
-          perMethod.set(split.method, cur);
-        }
-
-        for (const split of splitTips) {
-          const cur = perMethod.get(split.method) || { total: 0, tip: 0 };
-          cur.tip += split.amount;
-          perMethod.set(split.method, cur);
-        }
-
-        for (const [method, values] of perMethod.entries()) {
-          const cur = map.get(method) || { method, uses: 0, total: 0, tip: 0 };
-          cur.uses += 1;
-          cur.total += values.total;
-          cur.tip += values.tip;
-          map.set(method, cur);
-        }
-      } else {
-        // formato anterior: método único
-        const key = normalizeMethod(p.method);
-        const cur = map.get(key) || { method: key, uses: 0, total: 0, tip: 0 };
-        cur.uses += 1;
-        cur.total += safeNumber(p.totalWithTip);
-        cur.tip += safeNumber(p.tipAmount);
-        map.set(key, cur);
-      }
-    }
-    return Array.from(map.values()).sort((a, b) => b.total - a.total);
+  const reconciliation = useMemo(() => {
+    try { return { breakdown: summarizeBreakdown(dayPayments), error: "" }; }
+    catch (error) { return { breakdown: [], error: error.message }; }
   }, [dayPayments]);
+  const breakdown = reconciliation.breakdown;
 
   const topProducts = useMemo(() => computeTopProducts(dayPayments), [dayPayments]);
 
@@ -381,6 +291,7 @@ export default function DailyReport({ onBack }) {
 
   function handlePrintClose() {
     if (!ready || savingRef.current) return;
+    if (reconciliation.error) return alert(reconciliation.error);
     // Usa el snapshot solo si coincide con el cálculo actual; así evitamos
     // reimprimir cierres antiguos generados con datos o lógica desactualizada.
     const data = closeForSelectedDate && closeSnapshotIsCurrent
@@ -403,6 +314,7 @@ export default function DailyReport({ onBack }) {
 
   async function handleGenerateClose() {
     if (!ready || savingRef.current) return;
+    if (reconciliation.error) return alert(reconciliation.error);
     if (dayPayments.length === 0) {
       alert("No hay pagos registrados para esta fecha.");
       return;
@@ -496,10 +408,12 @@ export default function DailyReport({ onBack }) {
         {probableDuplicates.length > 0 && (
           <div className="card" style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 18px", color: "#8a5a00", fontWeight: 700 }}>
             <StatusIcon kind="warning" style={{ width: 18, height: 18, flexShrink: 0 }} />
-            Se excluyeron {probableDuplicates.length} pago(s) probablemente duplicados del cierre. Revísalos en Admin facturas.
+            Hay {probableDuplicates.length} pago(s) posiblemente duplicados. Se cuentan todos los IDs distintos. Revísalos en Admin facturas.
           </div>
         )}
       </div>
+
+      {reconciliation.error && <p role="alert">No se pudo conciliar el desglose: {reconciliation.error} Revisa los pagos antes de guardar el cierre.</p>}
 
       {/* ── Grid principal: 3 columnas ── */}
       <div style={{
@@ -510,18 +424,21 @@ export default function DailyReport({ onBack }) {
       }}>
         {/* Columna 1 — Resumen del día */}
         <div className="card" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          <h3 style={{ margin: 0, fontSize: 13, textTransform: "uppercase", letterSpacing: 1, opacity: 0.55 }}>Resumen del día</h3>
+          <h3 style={{ margin: 0, fontSize: 13, textTransform: "uppercase", letterSpacing: 1, opacity: 0.55 }}>Ventas del día · sin propinas</h3>
           <div style={{ fontSize: 36, fontWeight: 900, lineHeight: 1, color: "var(--brown)" }}>
-            ${formatCOP(liveSummary.total)}
+            ${formatCOP(liveSummary.sales)}
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14 }}>
-              <span style={{ opacity: 0.65 }}>Subtotal</span>
+              <span style={{ opacity: 0.65 }}>Subtotal antes de descuentos</span>
               <span style={{ fontWeight: 700 }}>${formatCOP(liveSummary.subtotal)}</span>
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14 }}>
               <span style={{ opacity: 0.65 }}>Propina</span>
               <span style={{ fontWeight: 700 }}>${formatCOP(liveSummary.tip)}</span>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14 }}>
+              <span>Total con propina</span><span>${formatCOP(liveSummary.total)}</span>
             </div>
             <div style={{ height: 1, background: "var(--border)", margin: "2px 0" }} />
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: 15 }}>

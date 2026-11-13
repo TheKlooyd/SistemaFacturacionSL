@@ -3,17 +3,37 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "test:mobile": "node --test scripts/mobile-math.test.mjs scripts/mobile-database.test.mjs",
+    "test:mobile-ui": "playwright test --config playwright.mobile.config.mjs",
+    "generate:mobile-icons": "node scripts/generate-mobile-icons.mjs",
     "generate:qr": "node scripts/generate-qr-codes.mjs",
     "test:qr": "node --test scripts/qr-order-contract.test.mjs",
     "test:tenancy": "node --test scripts/multitenant-foundation.test.mjs",
     "test:branding": "node --test scripts/business-branding.test.mjs",
     "test:daily-close": "node --test scripts/daily-close.test.mjs",
-    "test:launch": "node --test scripts/launch-readiness.test.mjs"
+    "test:launch": "node --test scripts/launch-readiness.test.mjs",
+    "local:prepare": "node scripts/mobile-local.mjs prepare",
+    "local:start": "node scripts/mobile-local.mjs start",
+    "local:stop": "node scripts/mobile-local.mjs stop",
+    "local:status": "node scripts/mobile-local.mjs status",
+    "local:seed": "node scripts/mobile-local.mjs seed",
+    "local:reset": "node scripts/mobile-local.mjs reset",
+    "local:functions": "node scripts/mobile-local.mjs functions",
+    "local:web": "node scripts/mobile-local.mjs web",
+    "test:mobile-local": "node --test scripts/mobile-local.test.mjs",
+    "local:push": "node scripts/mobile-local.mjs push",
+    "test:mobile-local-ui": "node scripts/mobile-local-ui.mjs",
+    "local:android": "node scripts/mobile-phone.mjs",
+    "test:mobile-gateway": "node --test scripts/mobile-phone-gateway.test.mjs",
+    "local:android-alert": "node scripts/mobile-phone-alert.mjs"
   },
   "dependencies": {
     "qrcode": "^1.5.4"
   },
   "devDependencies": {
-    "@electric-sql/pglite": "0.5.8"
+    "@electric-sql/pglite": "0.5.8",
+    "@playwright/test": "1.65.0",
+    "pg": "8.23.1",
+    "supabase": "3.1.0"
   }
 }

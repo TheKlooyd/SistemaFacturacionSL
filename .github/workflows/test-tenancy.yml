@@ -6,6 +6,9 @@ on:
       - 'supabase/**'
       - 'supabase_schema.sql'
       - 'scripts/*.test.mjs'
+      - 'scripts/mobile-ui/**'
+      - 'scripts/mobile-*.mjs'
+      - 'playwright.mobile.config.mjs'
       - 'frontend/**'
       - 'package.json'
       - 'package-lock.json'
@@ -16,6 +19,9 @@ on:
       - 'supabase/**'
       - 'supabase_schema.sql'
       - 'scripts/*.test.mjs'
+      - 'scripts/mobile-ui/**'
+      - 'scripts/mobile-*.mjs'
+      - 'playwright.mobile.config.mjs'
       - 'frontend/**'
       - 'package.json'
       - 'package-lock.json'
@@ -37,9 +43,14 @@ jobs:
       - run: node --test scripts/performance.test.mjs
       - run: npm run test:launch
       - run: npm run test:daily-close
+      - run: npm run test:mobile
+      - run: npm run test:mobile-gateway
+      - run: node --test scripts/inventory.test.mjs
       - run: npm run test:tenancy
       - run: npm run test:branding
       - run: npm run test:qr
       - run: npm ci --prefix frontend
       - run: npm run lint --prefix frontend
       - run: npm run build --prefix frontend
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:mobile-ui

@@ -7,6 +7,12 @@ qr-output/
 *.tokens.local
 *.secrets.local
 .DS_Store
+test-results/
+playwright-report/
 
 # Archivos temporales locales de Supabase
 supabase/.temp/
+local/supabase/migrations/
+local/supabase/functions/
+local/frontend/
+local/state.local/
