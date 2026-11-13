@@ -20,12 +20,14 @@ await mkdir("design-preview/mobile", { recursive: true });
 
 async function fixture(
   page,
-  { authenticated = true, owner = true, failFirstAdjustment = false } = {},
+  { authenticated = true, owner = true, failFirstAdjustment = false, failFirstCreation = false } = {},
 ) {
   const calls = [];
   let stock = 5,
     receipt = null,
-    failed = false;
+    failed = false,
+    createdItem = null,
+    creationFailed = false;
   if (authenticated)
     await page.addInitScript(
       ({ projectRef, business }) => {
@@ -70,7 +72,7 @@ async function fixture(
     if (["127.0.0.1", "localhost"].includes(url.hostname))
       return route.continue();
     if (url.origin !== projectUrl) return route.abort();
-    if (!url.pathname.endsWith("/rpc/klooyd_mobile"))
+    if (!url.pathname.endsWith("/rpc/klooyd_mobile") && !url.pathname.endsWith("/rpc/klooyd_mobile_workspace"))
       return route.fulfill({
         status: 501,
         json: { message: "Endpoint outside this UI fixture" },
@@ -87,6 +89,13 @@ async function fixture(
     switch (action) {
       case "context":
         data = owner ? contextData : { businesses: [], pinConfigured: false };
+        break;
+      case "daily":
+        data = {
+          date: "2026-11-13", sales: "120000", tickets: 4,
+          stationLabel: "Mesas", stationsTotal: 8, stationsBusy: 3,
+          lowStock: 3, outOfStock: 1, unread: 2, lastClose: null,
+        };
         break;
       case "dashboard": {
         const month = payload.month;
@@ -139,6 +148,14 @@ async function fixture(
           payload.pin === "123456"
             ? { ok: true, token: "local-fixture-token" }
             : { ok: false, error: "PIN incorrecto." };
+        break;
+      case "create_catalog_item":
+        createdItem ||= { id: product };
+        data = createdItem;
+        if (failFirstCreation && !creationFailed) {
+          creationFailed = true;
+          return route.abort("connectionfailed");
+        }
         break;
       case "adjust":
         if (!receipt) {
@@ -200,7 +217,7 @@ for (const width of [320, 390, 430, 768])
       page.getByRole("heading", { name: "Tu negocio, al día" }),
     ).toBeVisible();
     await expect(
-      page.getByText("Ventas históricas", { exact: true }),
+      page.getByText("Ventas de hoy", { exact: true }),
     ).toBeVisible();
     expect(
       await page.evaluate(
@@ -235,6 +252,57 @@ for (const width of [320, 390, 430, 768])
         fullPage: true,
       });
   });
+test("inicio muestra el día y conserva el histórico en ventas", async ({ page }) => {
+  const f = await fixture(page);
+  await page.goto("/mobile/");
+  await expect(page.getByText("Ventas de hoy", { exact: true })).toBeVisible();
+  await expect(page.getByText("Mesas en uso", { exact: true })).toBeVisible();
+  await expect(page.getByText("5 disponibles · 8 en total")).toBeVisible();
+  await expect(page.getByText("Ventas históricas", { exact: true })).toHaveCount(0);
+  expect(f.calls.some((call) => call.action === "dashboard")).toBe(false);
+  await page.getByRole("link", { name: "Ventas", exact: true }).click();
+  await expect(page.getByText("Ventas históricas", { exact: true })).toBeVisible();
+});
+test("crear producto requiere PIN y recupera el mismo intento tras recargar", async ({ page }) => {
+  const f = await fixture(page, { failFirstCreation: true });
+  await page.goto("/mobile/inventario/nuevo");
+  await page.getByLabel("Nombre", { exact: true }).fill("Aceite nuevo");
+  await page.getByRole("combobox", { name: "Categoría", exact: true }).selectOption(business);
+  await page.getByLabel("Precio de venta").fill("2500");
+  await page.getByLabel("Precio de compra").fill("1000");
+  await page.getByLabel("Existencias iniciales").fill("3");
+  await page.getByLabel("PIN administrativo").fill("000000");
+  await page.getByRole("button", { name: "Guardar artículo" }).click();
+  await expect(page.getByRole("alert")).toContainText("PIN incorrecto");
+  expect(f.calls.some((call) => call.action === "create_catalog_item")).toBe(false);
+  await page.getByLabel("PIN administrativo").fill("123456");
+  await page.getByRole("button", { name: "Guardar artículo" }).click();
+  await expect(page.getByRole("alert")).toContainText("evitar duplicados");
+  await page.reload();
+  await expect(page.getByText(/Pendiente de confirmar: Aceite nuevo/)).toBeVisible();
+  await page.getByLabel("PIN administrativo").fill("123456");
+  await page.getByRole("button", { name: "Reintentar el mismo artículo" }).click();
+  await expect(page.getByText("Artículo guardado")).toBeVisible();
+  const attempts = f.calls.filter((call) => call.action === "create_catalog_item");
+  expect(attempts).toHaveLength(2);
+  expect(attempts[0].payload.requestId).toBe(attempts[1].payload.requestId);
+  expect(attempts[0].payload.stock).toBe(3);
+});
+test("crear servicio no solicita ni envía inventario físico", async ({ page }) => {
+  const f = await fixture(page);
+  await page.goto("/mobile/inventario/nuevo");
+  await page.getByLabel("Tipo").selectOption("service");
+  await page.getByLabel("Nombre", { exact: true }).fill("Servicio de mantenimiento");
+  await page.getByRole("combobox", { name: "Categoría", exact: true }).selectOption(business);
+  await page.getByLabel("Precio de venta").fill("50000");
+  await expect(page.getByLabel("Existencias iniciales")).toHaveCount(0);
+  await page.getByLabel("PIN administrativo").fill("123456");
+  await page.getByRole("button", { name: "Guardar artículo" }).click();
+  await expect(page.getByText("Artículo guardado")).toBeVisible();
+  const call = f.calls.find((item) => item.action === "create_catalog_item");
+  expect(call.payload.itemType).toBe("service");
+  expect(call.payload.stock).toBe(0);
+});
 test("entrada anónima muestra login y no solicita datos privados", async ({
   page,
 }) => {

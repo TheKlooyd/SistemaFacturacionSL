@@ -9,3 +9,4 @@ verify_jwt = false
 
 [functions.mobile-push]
 verify_jwt = false
+
